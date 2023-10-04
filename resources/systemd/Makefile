@@ -30,6 +30,6 @@ copy-default-settings:
 	chmod 644 /etc/haproxy-spoe-auth/config.yml
 
 build-install-systemd: build create-user copy-default-settings copy-systemd-unit
-	cp haproxy-spoe-auth /usr/local/bin/haproxy-spoe-auth
+	cp ../../cmd/haproxy-spoe-auth /usr/local/bin/haproxy-spoe-auth
 	chown haproxy-spoe-auth:haproxy-spoe-auth /usr/local/bin/haproxy-spoe-auth
 	chmod 550 /usr/local/bin/haproxy-spoe-auth
