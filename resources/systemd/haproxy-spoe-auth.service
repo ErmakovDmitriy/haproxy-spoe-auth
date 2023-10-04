@@ -1,0 +1,16 @@
+[Unit]
+Description=HAProxy SPOE Authentication Agent
+Documentation=https://github.com/criteo/haproxy-spoe-auth
+
+[Service]
+Restart=always
+User=haproxy-spoe-agent
+Group=haproxy-spoe-agent
+EnvironmentFile=/etc/default/haproxy-spoe-agent
+ExecStart=/usr/local/bin/haproxy-spoe-agent -config $HAPROXY_SPOE_AGENT_CONFIG_FILE -dynamic-client-info=$HAPROXY_SPOE_AGENT_DYNAMIC_CLIENTS
+ExecReload=/bin/kill -HUP $MAINPID
+TimeoutStopSec=20s
+SendSIGKILL=no
+
+[Install]
+WantedBy=multi-user.target
