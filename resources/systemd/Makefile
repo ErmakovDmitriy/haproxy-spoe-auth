@@ -11,7 +11,7 @@ build-no-cgo:
 	CGO_ENABLED=0 go build -C ../../cmd/haproxy-spoe-auth -o haproxy-spoe-auth
 
 copy-systemd-unit:
-	cp haproxy-spoe-auth.service /etc/systemd/haproxy-spoe-auth.service
+	cp haproxy-spoe-auth.service /etc/systemd/system/haproxy-spoe-auth.service
 	systemctl daemon-reload
 
 create-user:
