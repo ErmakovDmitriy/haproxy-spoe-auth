@@ -15,7 +15,7 @@ copy-systemd-unit:
 	systemctl daemon-reload
 
 create-user:
-	getent passwd haproxy-spoe-auth
+	getent passwd haproxy-spoe-auth; \
 	if test $? != 0; then \
 		useradd haproxy-spoe-auth \
 	fi
