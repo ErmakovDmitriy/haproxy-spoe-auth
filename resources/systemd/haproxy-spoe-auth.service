@@ -1,13 +1,13 @@
 [Unit]
-Description=HAProxy SPOE Authentication Agent
+Description=HAProxy SPOE Authentication Auth
 Documentation=https://github.com/criteo/haproxy-spoe-auth
 
 [Service]
 Restart=always
-User=haproxy-spoe-agent
-Group=haproxy-spoe-agent
-EnvironmentFile=/etc/default/haproxy-spoe-agent
-ExecStart=/usr/local/bin/haproxy-spoe-agent -config $HAPROXY_SPOE_AUTH_CONFIG_FILE -dynamic-client-info=$HAPROXY_SPOE_AUTH_DYNAMIC_CLIENTS
+User=haproxy-spoe-auth
+Group=haproxy-spoe-auth
+EnvironmentFile=/etc/default/haproxy-spoe-auth
+ExecStart=/usr/local/bin/haproxy-spoe-auth -config $HAPROXY_SPOE_AUTH_CONFIG_FILE -dynamic-client-info=$HAPROXY_SPOE_AUTH_DYNAMIC_CLIENTS
 TimeoutStopSec=20s
 
 [Install]

@@ -1,4 +1,4 @@
-# Path to agent configuration file.
+# Path to auth configuration file.
 HAPROXY_SPOE_AUTH_CONFIG_FILE="/etc/haproxy-spoe-auth/config.yml"
-# Allow using dynamic OpenID agents.
+# Allow using dynamic OpenID auths.
 HAPROXY_SPOE_AUTH_DYNAMIC_CLIENTS="true"

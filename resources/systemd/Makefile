@@ -20,9 +20,9 @@ create-user:
 copy-default-settings:
 	# Default flags
 	mkdir -p /etc/default/
-	cp haproxy-spoe-agent /etc/default/haproxy-spoe-agent
-	chown root:root /etc/default/haproxy-spoe-agent
-	chmod 644 /etc/default/haproxy-spoe-agent
+	cp haproxy-spoe-auth /etc/default/haproxy-spoe-auth
+	chown root:root /etc/default/haproxy-spoe-auth
+	chmod 644 /etc/default/haproxy-spoe-auth
 	# Default configuration file
 	mkdir -p /etc/haproxy-spoe-auth/
 	cp ../configuration/config.yml /etc/haproxy-spoe-auth/config.yml
