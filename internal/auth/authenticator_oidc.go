@@ -388,7 +388,7 @@ func (oa *OIDCAuthenticator) Authenticate(msg *message.Message) (bool, []action.
 
 		// Parse and evaluate token expressions.
 		if len(oauthArgs.tokenExpressions) != 0 {
-			expr, err := BuildTokenExpressionsMessage(tokenClaims, oauthArgs.tokenExpressions)
+			expr, err := EvaluateTokenExpressions(tokenClaims, oauthArgs.tokenExpressions)
 			if err != nil {
 				return false, []action.Action{BuildHasErrorMessage()}, fmt.Errorf("can not evaluate ID Token expressions: %w", err)
 			}

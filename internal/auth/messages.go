@@ -50,7 +50,7 @@ const (
 
 var ErrTokenExpressionUnknownOperation = errors.New("unknown operation is provided as token expression")
 
-func BuildTokenExpressionsMessage(claimsVals *gjson.Result, tokenExpressions []OAuthTokenExpression) ([]action.Action, error) {
+func EvaluateTokenExpressions(claimsVals *gjson.Result, tokenExpressions []OAuthTokenExpression) ([]action.Action, error) {
 	var result = make([]action.Action, 0, len(tokenExpressions))
 
 	for i := range tokenExpressions {
