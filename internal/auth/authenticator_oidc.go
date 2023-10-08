@@ -326,6 +326,19 @@ func extractOAuth2Args(msg *message.Message, readClientInfoFromMessages bool, lo
 				return OAuthArgs{}, fmt.Errorf("can not parse arg_token_expressions: %w", err)
 			}
 		}
+
+		// Token expressions.
+		tokenExpressionsValue, ok := msg.KV.Get("arg_token_expressions")
+		if ok {
+			strV, ok := tokenExpressionsValue.(string)
+			if ok {
+				var err error
+				tokenExpressions, err = parseTokenExpressions(strV)
+				if err != nil {
+					return OAuthArgs{}, fmt.Errorf("can not parse arg_token_expressions: %w", err)
+				}
+			}
+		}
 	}
 
 	if readClientInfoFromMessages {
