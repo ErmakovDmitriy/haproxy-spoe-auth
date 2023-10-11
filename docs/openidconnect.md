@@ -135,3 +135,4 @@ See [messages_test.go](../internal/auth/messages_test.go) for examples.
 * Allow the SPOE agent to match a certain list of groups the user belongs to.
 * Think about secret rotation.
 * Prevent replay attacks by putting some kind of nonce in the state.
+* Consider using URL encoded values for token claims and expressions args or any other way to handle keys and values with spaces.
