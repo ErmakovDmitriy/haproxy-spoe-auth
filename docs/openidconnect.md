@@ -77,6 +77,30 @@ OAuth2 server. If the server has kept the user logged in, there will be no authe
 redirected. You need to find the right balance between longevity of the session and security. The more the session lives,
 the more there are chances the session has been compromised.
 
+### Token Claims
+
+The SPOE agent supports information extraction from an OpenID ID token claims data.
+
+The required claims list must be passed from HAProxy in a variable `arg_token_claims`
+as JSON paths separated by spaces. On successful authentication, the agent
+will set HAProxy session variables, one variable per requested claim as:
+`token_claim_{{ JSON path with all characters except a-z, A-Z, 0-9 replaced by '_' }}={{ claim value }}`.
+
+The SPOE agent supports simple expressions evaluation based on an OpenID ID token claims data.
+
+Supported operations are:
+
+- exists
+- doesnotexist
+- in
+- notin
+
+The expressions must be passed from HAProxy in a variable `arg_token_expressions` in a format:
+
+`{{ operation }}_{{ claim JSON path }}_{{ value }}` for `in` and `notin`;
+`{{ operation }}_{{ claim JSON path }}` for `exists` and `doesnotexit`.
+
+The operations `in` and `notin` expect that the `JSON path` points to a list of values.
 
 ## TODO
 
