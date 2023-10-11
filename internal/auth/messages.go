@@ -113,19 +113,13 @@ func EvaluateTokenExpressions(claimsVals *gjson.Result, tokenExpressions []OAuth
 	return result, nil
 }
 
-var spoeKeyReplacer = strings.NewReplacer("-", "_", ".", "_")
-
-func computeSPOEClaimKey(key string) string {
-	return "token_claim_" + spoeKeyReplacer.Replace(key)
-}
-
-func normalizeSPOEExpressionValue(val string) string {
+func normalizeSPOEKV(s string) string {
 	var result = &strings.Builder{}
 
-	result.Grow(len(val))
+	result.Grow(len(s))
 
-	for _, c := range val {
-		if (c > 'a' && c < 'z') || (c > 'A' && c < 'Z') || (c > '0' && c < '9') {
+	for _, c := range s {
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') {
 			_, _ = result.WriteRune(c)
 		} else {
 			_, _ = result.WriteRune('_')
@@ -135,13 +129,21 @@ func normalizeSPOEExpressionValue(val string) string {
 	return result.String()
 }
 
+func computeSPOEClaimKey(key string) string {
+	return "token_claim_" + normalizeSPOEKV(key)
+}
+
+func normalizeSPOEExpressionValue(val string) string {
+	return normalizeSPOEKV(val)
+}
+
 func computeSPOEExpressionKey(expr *OAuthTokenExpression) string {
 	var result = &strings.Builder{}
 
 	_, _ = result.WriteString("token_expression_")
 	_, _ = result.WriteString(expr.operation.String())
 	_, _ = result.WriteRune('_')
-	_, _ = result.WriteString(spoeKeyReplacer.Replace(expr.tokenClaim))
+	_, _ = result.WriteString(normalizeSPOEKV(expr.tokenClaim))
 
 	if expr.operation == exists || expr.operation == doesNotExist {
 		return result.String()

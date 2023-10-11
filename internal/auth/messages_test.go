@@ -154,7 +154,9 @@ func (ts *TestEvaluateTokenExpressionsSuite) TestExpressions() {
 					"service2": {
 						"roles": ["service2-role-1", "service2-role-2"]
 					}
-				}
+				},
+				"values-with-spaces": ["role 1", "role 2"],
+				"key with spaces": ["value1"]
 			}`),
 		}
 
@@ -212,6 +214,23 @@ func (ts *TestEvaluateTokenExpressionsSuite) TestExpressions() {
 						rawValue:   "non-existing-field",
 						operation:  notIn,
 					},
+					// Values with spaces or other characters.
+					{
+						tokenClaim: "values-with-spaces",
+						rawValue:   "role 1",
+						operation:  in,
+					},
+					{
+						tokenClaim: "values-with-spaces",
+						rawValue:   "role 1",
+						operation:  notIn,
+					},
+					// Key with spaces.
+					{
+						tokenClaim: "key with spaces",
+						rawValue:   "value1",
+						operation:  notIn,
+					},
 				},
 				expectedValue: []action.Action{
 					action.NewSetVar(action.ScopeSession, "token_expression_in_per_service_service1_roles_service1_role_1", 1),
@@ -228,6 +247,11 @@ func (ts *TestEvaluateTokenExpressionsSuite) TestExpressions() {
 
 					action.NewSetVar(action.ScopeSession, "token_expression_in_non_existing_path_service1_roles_non_existing_field", 0),
 					action.NewSetVar(action.ScopeSession, "token_expression_notin_non_existing_path_service1_roles_non_existing_field", 1),
+
+					action.NewSetVar(action.ScopeSession, "token_expression_in_values_with_spaces_role_1", 1),
+					action.NewSetVar(action.ScopeSession, "token_expression_notin_values_with_spaces_role_1", 0),
+
+					action.NewSetVar(action.ScopeSession, "token_expression_notin_key_with_spaces_value1", 0),
 				},
 			},
 		}
