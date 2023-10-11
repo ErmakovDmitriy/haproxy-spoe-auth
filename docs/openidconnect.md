@@ -70,7 +70,7 @@ Cookies are secure by default. There is an option to disable that flag but pleas
 disable the flag. It would expose your users' sessions to leakage on the Internet. This flag is only here for test
 purposes.
 
-### Cookie TTL
+### Cookie TTL
 
 The cookie has a TTL set to 1h by default. This is the amount of time before the user does a new round trip to the
 OAuth2 server. If the server has kept the user logged in, there will be no authentication involved but the user will be
