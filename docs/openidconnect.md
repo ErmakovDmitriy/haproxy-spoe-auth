@@ -84,7 +84,12 @@ The SPOE agent supports information extraction from an OpenID ID token claims da
 The required claims list must be passed from HAProxy in a variable `arg_token_claims`
 as JSON paths separated by spaces. On successful authentication, the agent
 will set HAProxy session variables, one variable per requested claim as:
-`token_claim_{{ JSON path with all characters except a-z, A-Z, 0-9 replaced by '_' }}={{ claim value }}`.
+
+```
+token_claim_{{ JSON path | replace with '_' everything except a-z, A-Z, 0-9 }}={{ claim value }}
+```
+
+See [messages_test.go](../internal/auth/messages_test.go) for examples.
 
 The SPOE agent supports simple expressions evaluation based on an OpenID ID token claims data.
 
@@ -97,10 +102,32 @@ Supported operations are:
 
 The expressions must be passed from HAProxy in a variable `arg_token_expressions` in a format:
 
-`{{ operation }}_{{ claim JSON path }}_{{ value }}` for `in` and `notin`;
-`{{ operation }}_{{ claim JSON path }}` for `exists` and `doesnotexit`.
+```
+{{ operation }};{{ claim JSON path }};{{ value }}
+```
+
+for `in` and `notin` and
+
+```
+{{ operation }};{{ claim JSON path }}
+```
+
+for `exists` and `doesnotexit`.
 
 The operations `in` and `notin` expect that the `JSON path` points to a list of values.
+
+The agent evaluates the requested operations and passes results in HAProxy session variables as
+```
+token_expression_{{ operation }}_{{ claim JSON path | replace with '_' everything except a-z, A-Z, 0-9 }}_{{ value | replace with '_' everything except a-z, A-Z, 0-9 }}=(1|0)
+```
+for `in`, `notin` and 
+
+```
+token_expression_{{ operation }}_{{ claim JSON path | replace with '_' everything except a-z, A-Z, 0-9 }}=(1|0)
+```
+for `exists`, `doesnotexist`.
+
+See [messages_test.go](../internal/auth/messages_test.go) for examples.
 
 ## TODO
 
