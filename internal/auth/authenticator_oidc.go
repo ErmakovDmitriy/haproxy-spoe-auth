@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/tidwall/gjson"
 	"github.com/vmihailenco/msgpack/v5"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -79,14 +81,15 @@ type OIDCAuthenticator struct {
 }
 
 type OAuthArgs struct {
-	ssl          bool
-	host         string
-	pathq        string
-	clientid     string
-	clientsecret string
-	redirecturl  string
-	cookie       string
-	tokenClaims  []string
+	ssl              bool
+	host             string
+	pathq            string
+	clientid         string
+	clientsecret     string
+	redirecturl      string
+	cookie           string
+	tokenClaims      []string
+	tokenExpressions []OAuthTokenExpression
 }
 
 // NewOIDCAuthenticator create an instance of an OIDC authenticator
@@ -185,41 +188,36 @@ func extractOAuth2Args(msg *message.Message, readClientInfoFromMessages bool) (O
 	var cookie string
 	var clientid, clientsecret, redirecturl *string
 	var tokenClaims []string
+	var tokenExpressions []OAuthTokenExpression
 
 	// ssl
 	sslValue, ok := msg.KV.Get("arg_ssl")
 	if !ok {
-		return OAuthArgs{ssl: false, host: "", pathq: "", cookie: "", clientid: "", clientsecret: "", redirecturl: ""},
-			ErrSSLArgNotFound
+		return OAuthArgs{}, ErrSSLArgNotFound
 	}
 	ssl, ok := sslValue.(bool)
 	if !ok {
-		return OAuthArgs{ssl: false, host: "", pathq: "", cookie: "", clientid: "", clientsecret: "", redirecturl: ""},
-			fmt.Errorf("SSL is not a bool: %v", sslValue)
+		return OAuthArgs{}, fmt.Errorf("SSL is not a bool: %v", sslValue)
 	}
 
 	// host
 	hostValue, ok := msg.KV.Get("arg_host")
 	if !ok {
-		return OAuthArgs{ssl: false, host: "", pathq: "", cookie: "", clientid: "", clientsecret: "", redirecturl: ""},
-			ErrHostArgNotFound
+		return OAuthArgs{}, ErrHostArgNotFound
 	}
 	host, ok := hostValue.(string)
 	if !ok {
-		return OAuthArgs{ssl: false, host: "", pathq: "", cookie: "", clientid: "", clientsecret: "", redirecturl: ""},
-			fmt.Errorf("host is not a string: %v", hostValue)
+		return OAuthArgs{}, fmt.Errorf("host is not a string: %v", hostValue)
 	}
 
 	// pathq
 	pathqValue, ok := msg.KV.Get("arg_pathq")
 	if !ok {
-		return OAuthArgs{ssl: false, host: "", pathq: "", cookie: "", clientid: "", clientsecret: "", redirecturl: ""},
-			ErrPathqArgNotFound
+		return OAuthArgs{}, ErrPathqArgNotFound
 	}
 	pathq, ok := pathqValue.(string)
 	if !ok {
-		return OAuthArgs{ssl: false, host: "", pathq: "", cookie: "", clientid: "", clientsecret: "", redirecturl: ""},
-			fmt.Errorf("pathq is not a string: %v", pathqValue)
+		return OAuthArgs{}, fmt.Errorf("pathq is not a string: %v", pathqValue)
 	}
 
 	// cookie
@@ -233,6 +231,19 @@ func extractOAuth2Args(msg *message.Message, readClientInfoFromMessages bool) (O
 			strV, ok := tokenClaimsValue.(string)
 			if ok {
 				tokenClaims = strings.Split(strV, " ")
+			}
+		}
+
+		// Token expressions.
+		tokenExpressionsValue, ok := msg.KV.Get("arg_token_expressions")
+		if ok {
+			strV, ok := tokenExpressionsValue.(string)
+			if ok {
+				var err error
+				tokenExpressions, err = parseTokenExpressions(strV)
+				if err != nil {
+					return OAuthArgs{}, fmt.Errorf("can not parse arg_token_expressions: %w", err)
+				}
 			}
 		}
 	}
@@ -290,7 +301,8 @@ func extractOAuth2Args(msg *message.Message, readClientInfoFromMessages bool) (O
 	return OAuthArgs{ssl: ssl, host: host, pathq: pathq,
 			cookie: cookie, clientid: *clientid,
 			clientsecret: *clientsecret, redirecturl: *redirecturl,
-			tokenClaims: tokenClaims},
+			tokenClaims:      tokenClaims,
+			tokenExpressions: tokenExpressions},
 		nil
 }
 
@@ -354,18 +366,37 @@ func (oa *OIDCAuthenticator) Authenticate(msg *message.Message) (bool, []action.
 			return false, nil, err
 		}
 
-		if len(oauthArgs.tokenClaims) == 0 {
+		// Parse TokenClaims and Token Expressions and set the values in response.
+		if len(oauthArgs.tokenClaims) == 0 && len(oauthArgs.tokenExpressions) == 0 {
+			// Skip parsing.
 			return true, nil, nil
-		} else {
-			// Extract token claims.
-			actions, err := BuildTokenClaimsMessage(idToken, oauthArgs.tokenClaims)
-			if err != nil {
-				return false, nil, err
-			}
-
-			return true, actions, nil
 		}
 
+		// Parse Token.
+		tokenClaims, err := parseTokenClaims(idToken)
+		if err != nil {
+			return false, []action.Action{BuildHasErrorMessage()}, fmt.Errorf("can not parse ID Token claims: %w", err)
+		}
+
+		var actions []action.Action
+
+		// Parse token claims.
+		if len(oauthArgs.tokenClaims) != 0 {
+			// Extract token claims.
+			actions = append(actions, BuildTokenClaimsMessage(tokenClaims, oauthArgs.tokenClaims)...)
+		}
+
+		// Parse and evaluate token expressions.
+		if len(oauthArgs.tokenExpressions) != 0 {
+			expr, err := EvaluateTokenExpressions(tokenClaims, oauthArgs.tokenExpressions)
+			if err != nil {
+				return false, []action.Action{BuildHasErrorMessage()}, fmt.Errorf("can not evaluate ID Token expressions: %w", err)
+			}
+
+			actions = append(actions, expr...)
+		}
+
+		return true, actions, nil
 	}
 
 	authorizationURL, err := oa.builaAuthorizationURL(domain, oauthArgs)
@@ -529,4 +560,94 @@ func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, error
 			http.Error(w, "Bad request", http.StatusBadRequest)
 		}
 	}
+}
+
+func parseTokenExpressions(arg string) ([]OAuthTokenExpression, error) {
+	expessions := strings.Split(arg, " ")
+
+	var result = make([]OAuthTokenExpression, 0, len(expessions))
+
+	for i := range expessions {
+		vals := strings.Split(expessions[i], ";")
+
+		valsLen := len(vals)
+
+		if valsLen < 2 {
+			return nil, fmt.Errorf(
+				"%w: not enough arguments, minimum number of arguments is 2, given expression is %q",
+				ErrParseTokenExpressionRequest, expessions[i])
+		}
+
+		var expr = OAuthTokenExpression{}
+
+		switch vals[0] {
+		case operationExists:
+			// Format is "{{ operation }};{{ token claims path }}"
+			expr.operation = exists
+
+			if valsLen != 2 {
+				return nil, fmt.Errorf(
+					"%w: operation %q requires exactly 2 arguments, %d given, request: %q",
+					ErrParseTokenExpressionRequest, operationExists, valsLen, expessions[i])
+			}
+
+			expr.tokenClaim = vals[1]
+
+		case operationDoesNotExist:
+			expr.operation = doesNotExist
+
+			if valsLen != 2 {
+				return nil, fmt.Errorf(
+					"%w: operation %q requires exactly 2 arguments, %d given, request: %q",
+					ErrParseTokenExpressionRequest, operationDoesNotExist, valsLen, expessions[i])
+			}
+
+			expr.tokenClaim = vals[1]
+
+		case operationIn:
+			expr.operation = in
+
+			if valsLen != 3 {
+				return nil, fmt.Errorf(
+					"%w: operation %q requires exactly 3 arguments, %d given, request: %q",
+					ErrParseTokenExpressionRequest, operationIn, valsLen, expessions[i])
+			}
+
+			expr.tokenClaim = vals[1]
+			expr.rawValue = vals[2]
+
+		case operationNotIn:
+			expr.operation = notIn
+
+			if valsLen != 3 {
+				return nil, fmt.Errorf(
+					"%w: operation %q requires exactly 3 arguments, %d given, request: %q",
+					ErrParseTokenExpressionRequest, operationNotIn, valsLen, expessions[i])
+			}
+
+			expr.tokenClaim = vals[1]
+			expr.rawValue = vals[2]
+
+		default:
+			return nil, fmt.Errorf(
+				"%w: unsupported operation %q in a token expression %q",
+				ErrParseTokenExpressionRequest, vals[i], expessions[i])
+		}
+
+		result = append(result, expr)
+	}
+
+	return result, nil
+}
+
+func parseTokenClaims(idToken *oidc.IDToken) (*gjson.Result, error) {
+	var claimsData json.RawMessage
+
+	if err := idToken.Claims(&claimsData); err != nil {
+		return nil, fmt.Errorf("unable to load OIDC claims: %w", err)
+	}
+
+	claimsVals := gjson.ParseBytes(claimsData)
+
+	return &claimsVals, nil
 }
