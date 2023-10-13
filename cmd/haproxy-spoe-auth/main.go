@@ -42,6 +42,10 @@ func main() {
 
 	logrus.SetLevel(LogLevelFromLogString(viper.GetString("server.log_level")))
 
+	if viper.GetBool("server.log_json") {
+		logrus.SetFormatter(&logrus.JSONFormatter{})
+	}
+
 	authenticators := map[string]auth.Authenticator{}
 
 	if viper.IsSet("ldap") {

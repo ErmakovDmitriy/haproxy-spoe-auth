@@ -3,6 +3,8 @@ server:
   addr: :8081
   # The verbosity of the logs: info or debug
   log_level: debug
+  # Use JSON formatter for logs
+  log_json: false
 
 # If set, the LDAP authenticator is enabled
 ldap:
