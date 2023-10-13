@@ -152,7 +152,7 @@ func (ts *TestEvaluateTokenExpressionsSuite) TestExpressions() {
 						"roles": ["service1-role-1", "service1-role-2"]
 					},
 					"service2": {
-						"roles": ["service2-role-1", "service2-role-2"]
+						"roles": ["service2-role-1", "service2-role-2", "service2-Role-3"]
 					}
 				},
 				"values-with-spaces": ["role 1", "role 2"],
@@ -231,6 +231,12 @@ func (ts *TestEvaluateTokenExpressionsSuite) TestExpressions() {
 						rawValue:   "value1",
 						operation:  notIn,
 					},
+					// Capital letters.
+					{
+						tokenClaim: "per-service.service2.roles",
+						rawValue:   "service2-Role-3",
+						operation:  in,
+					},
 				},
 				expectedValue: []action.Action{
 					action.NewSetVar(action.ScopeSession, "token_expression_in_per_service_service1_roles_service1_role_1", 1),
@@ -252,6 +258,8 @@ func (ts *TestEvaluateTokenExpressionsSuite) TestExpressions() {
 					action.NewSetVar(action.ScopeSession, "token_expression_notin_values_with_spaces_role_1", 0),
 
 					action.NewSetVar(action.ScopeSession, "token_expression_notin_key_with_spaces_value1", 0),
+
+					action.NewSetVar(action.ScopeSession, "token_expression_in_per_service_service2_roles_service2_Role_3", 1),
 				},
 			},
 		}

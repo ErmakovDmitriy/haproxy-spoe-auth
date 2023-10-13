@@ -378,12 +378,22 @@ func (oa *OIDCAuthenticator) Authenticate(msg *message.Message) (bool, []action.
 			return false, []action.Action{BuildHasErrorMessage()}, fmt.Errorf("can not parse ID Token claims: %w", err)
 		}
 
+		if logrus.IsLevelEnabled(logrus.DebugLevel) {
+			logrus.WithField("tokenClaims", tokenClaims.String()).Debug("Parsed token claims")
+		}
+
 		var actions []action.Action
 
 		// Parse token claims.
 		if len(oauthArgs.tokenClaims) != 0 {
 			// Extract token claims.
-			actions = append(actions, BuildTokenClaimsMessage(tokenClaims, oauthArgs.tokenClaims)...)
+			claimsActs := BuildTokenClaimsMessage(tokenClaims, oauthArgs.tokenClaims)
+
+			if logrus.IsLevelEnabled(logrus.DebugLevel) {
+				logrus.WithField("actions", claimsActs).Debug("tokenClaims")
+			}
+
+			actions = append(actions, claimsActs...)
 		}
 
 		// Parse and evaluate token expressions.
@@ -391,6 +401,10 @@ func (oa *OIDCAuthenticator) Authenticate(msg *message.Message) (bool, []action.
 			expr, err := EvaluateTokenExpressions(tokenClaims, oauthArgs.tokenExpressions)
 			if err != nil {
 				return false, []action.Action{BuildHasErrorMessage()}, fmt.Errorf("can not evaluate ID Token expressions: %w", err)
+			}
+
+			if logrus.IsLevelEnabled(logrus.DebugLevel) {
+				logrus.WithField("actions", expr).Debug("tokenExpressions")
 			}
 
 			actions = append(actions, expr...)
