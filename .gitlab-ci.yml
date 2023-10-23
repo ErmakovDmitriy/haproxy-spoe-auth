@@ -9,7 +9,7 @@ default:
 
 test:
   stage: "test"
-  image: "docker.io/library/golang:1.21"
+  image: "harbor.maxiv.lu.se/dockerhub/library/golang:1.21"
   script:
     # The tests are limited to this directory for now.
     - "go test -v ./internal/..."
@@ -29,7 +29,7 @@ test:
 
 package/rpm/bin-only:
   stage: "package"
-  image: "docker.io/library/rockylinux:8"
+  image: "harbor.maxiv.lu.se/dockerhub/library/rockylinux:8"
   # dependencies:
   #   - "build"
   artifacts:
@@ -46,7 +46,7 @@ package/rpm/bin-only:
       fi
     - "dnf install -y rpmdevtools rpmlint"
     - "rpmdev-setuptree"
-    - "mkdir build/haproxy-spoe-auth-$VERSION"
+    - "mkdir -p build/haproxy-spoe-auth-$VERSION"
     - "cp -r ./ build/haproxy-spoe-auth-$VERSION/"
     - "tar --create --file build/haproxy-spoe-auth-$VERSION.tar.gz -C build/ ./haproxy-spoe-auth-$VERSION/"
     - "cp build/haproxy-spoe-auth-$VERSION.tar.gz ~/rpmbuild/SOURCES/"
