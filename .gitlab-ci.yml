@@ -55,3 +55,5 @@ package/rpm/bin-only:
       cd ~/rpmbuild/
       rpmbuild -bb SPECS/haproxy-spoe-auth.spec
     - "cp -r ~/rpmbuild/RPMS/ $CI_BUILDS_DIR/"
+    - "ls -lah $CI_BUILDS_DIR"
+    - "find $CI_BUILDS_DIR"
