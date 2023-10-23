@@ -44,7 +44,7 @@ package/rpm/bin-only:
       else
         VERSION="$CI_COMMIT_SHORT_SHA"
       fi
-    - "dnf install -y rpmdevtools rpmlint"
+    - "dnf install -y rpmdevtools rpmlint golang"
     - "rpmdev-setuptree"
     - "mkdir -p /usr/src/build/haproxy-spoe-auth-$VERSION"
     - "cp -r ./ /usr/src/build/haproxy-spoe-auth-$VERSION/"
