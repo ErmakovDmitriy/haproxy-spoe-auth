@@ -6,6 +6,7 @@ Summary:        HAProxy SPOE authentication agent
 License:        Apache 2.0
 URL:            https://github.com/ErmakovDmitriy/haproxy-spoe-auth
 Source0:        %{name}-%{version}.tar.gz
+Source1:        %{name}-%{version}.sysusers
 
 BuildRequires:  golang systemd-rpm-macros
 %{?sysusers_requires_compat}
@@ -44,7 +45,8 @@ install -p -D -g haproxy-spoe-auth -m 640 resources/configuration/config.yml %{b
 install -p -D -m 0644 packages/rpm/haproxy-spoe-auth.sysusers %{buildroot}/%{_sysusersdir}/haproxy-spoe-auth-users.conf
 
 %pre
-%sysusers_create_package %{name} %{_sysusersdir}/haproxy-spoe-auth-users.conf
+# The SOURCE1 must be capital letters, otherwise it is not expanded.
+%sysusers_create_package %{name} %{SOURCE1}
 
 
 %post
