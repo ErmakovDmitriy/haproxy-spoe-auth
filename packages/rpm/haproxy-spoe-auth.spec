@@ -44,7 +44,7 @@ install -p -D -m 600 resources/configuration/config.yml %{buildroot}/%{_sysconfd
 install -p -D -m 0644 packages/rpm/haproxy-spoe-auth.sysusers %{buildroot}/%{_sysusersdir}/haproxy-spoe-auth-users.conf
 
 %pre
-%sysusers_create_compat %{_sysusersdir}/haproxy-spoe-auth-users.conf
+%sysusers_create_package %{name} %{_sysusersdir}/haproxy-spoe-auth-users.conf
 
 
 %post
