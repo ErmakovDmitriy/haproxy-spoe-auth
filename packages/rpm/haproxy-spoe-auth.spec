@@ -41,8 +41,8 @@ install -p -D -m 640 resources/configuration/config.yml %{buildroot}/%{_sysconfd
 
 %pre
 # sysusers_create_package does not work on RedHat 7 and silently fails.
-getent group %{name} || groupadd %{name}
-getent passwd %{name} || useradd -g %{name} %{name}
+getent group %{name} > /dev/null || groupadd %{name}
+getent passwd %{name} > /dev/null || useradd -g %{name} %{name}
 
 
 %post
