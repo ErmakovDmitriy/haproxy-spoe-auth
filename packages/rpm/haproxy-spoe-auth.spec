@@ -6,10 +6,8 @@ Summary:        HAProxy SPOE authentication agent
 License:        Apache 2.0
 URL:            https://github.com/ErmakovDmitriy/haproxy-spoe-auth
 Source0:        %{name}-%{version}.tar.gz
-Source1:        %{name}-%{version}.sysusers
 
 BuildRequires:  golang systemd-rpm-macros
-%{?sysusers_requires_compat}
 Requires:       systemd
 
 %description
@@ -41,12 +39,15 @@ install -p -D -m 644 resources/systemd/haproxy-spoe-auth.service %{buildroot}/%{
 install -p -D -m 640 resources/systemd/haproxy-spoe-auth %{buildroot}/%{_sysconfdir}/default/haproxy-spoe-auth
 install -p -D -m 640 resources/configuration/config.yml %{buildroot}/%{_sysconfdir}/haproxy-spoe-auth/config.yml
 
-# Users
-install -p -D -m 0644 %{SOURCE1} %{buildroot}/%{_sysusersdir}/haproxy-spoe-auth-users.conf
-
 %pre
-# The SOURCE1 must be capital letters, otherwise it is not expanded.
-%sysusers_create_package %{name} %{SOURCE1}
+# sysusers_create_package does not work on RedHat 7 and silently fails.
+if test $(getent group %{name}) -ne 0; then
+    groupadd %{name}
+fi
+
+if test $(getent passwd %{name}) -ne 0; then
+    useradd -g %{name} %{name}
+fi
 
 
 %post
@@ -66,7 +67,6 @@ chgrp -R haproxy-spoe-auth %{_sysconfdir}/haproxy-spoe-auth/
 %{_unitdir}/%{name}.service
 %config(noreplace) %{_sysconfdir}/default/haproxy-spoe-auth
 %config(noreplace) %{_sysconfdir}/haproxy-spoe-auth/config.yml
-%{_sysusersdir}/haproxy-spoe-auth-users.conf
 
 
 %changelog
