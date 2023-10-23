@@ -37,8 +37,8 @@ install -p -D -m 755 build/haproxy-spoe-auth $RPM_BUILD_ROOT/%{_bindir}/%{name}
 install -p -D -m 644 resources/systemd/haproxy-spoe-auth.service %{buildroot}/%{_unitdir}/%{name}.service
 
 # Default config
-install -p -D -m 600 resources/systemd/haproxy-spoe-auth %{buildroot}/%{_sysconfdir}/default/haproxy-spoe-auth
-install -p -D -m 600 resources/configuration/config.yml %{buildroot}/%{_sysconfdir}/haproxy-spoe-auth/config.yml
+install -p -D -g haproxy-spoe-auth -m 640 resources/systemd/haproxy-spoe-auth %{buildroot}/%{_sysconfdir}/default/haproxy-spoe-auth
+install -p -D -g haproxy-spoe-auth -m 640 resources/configuration/config.yml %{buildroot}/%{_sysconfdir}/haproxy-spoe-auth/config.yml
 
 # Users
 install -p -D -m 0644 packages/rpm/haproxy-spoe-auth.sysusers %{buildroot}/%{_sysusersdir}/haproxy-spoe-auth-users.conf
