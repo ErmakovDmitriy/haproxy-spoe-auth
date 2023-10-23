@@ -1,2 +1,4 @@
-#Type Name                  ID  GECOS                               Home directory                  Shell
-u     haproxy-spoe-auth     -   "Runs HAProxy SPOE Auth service"    /var/run/haproxy-spoe-auth      /sbin/nologin
+#Type Name                  ID                  GECOS                               Home directory                  Shell
+u     haproxy-spoe-auth     -                   "Runs HAProxy SPOE Auth service"    /var/run/haproxy-spoe-auth      /sbin/nologin
+g     haproxy-spoe-auth     -                   -
+m     haproxy-spoe-auth     haproxy-spoe-auth
