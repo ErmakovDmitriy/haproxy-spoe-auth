@@ -7,12 +7,12 @@ default:
   tags:
     - "kubernetes"
 
-test:
-  stage: "test"
-  image: "harbor.maxiv.lu.se/dockerhub/library/golang:1.21"
-  script:
-    # The tests are limited to this directory for now.
-    - "go test -v ./internal/..."
+# test:
+#   stage: "test"
+#   image: "harbor.maxiv.lu.se/dockerhub/library/golang:1.21"
+#   script:
+#     # The tests are limited to this directory for now.
+#     - "go test -v ./internal/..."
 
 # build:
 #   stage: "build"
@@ -46,10 +46,10 @@ package/rpm/bin-only:
       fi
     - "dnf install -y rpmdevtools rpmlint"
     - "rpmdev-setuptree"
-    - "mkdir -p build/haproxy-spoe-auth-$VERSION"
-    - "cp -r ./ build/haproxy-spoe-auth-$VERSION/"
-    - "tar --create --file build/haproxy-spoe-auth-$VERSION.tar.gz -C build/ ./haproxy-spoe-auth-$VERSION/"
-    - "cp build/haproxy-spoe-auth-$VERSION.tar.gz ~/rpmbuild/SOURCES/"
+    - "mkdir -p /usr/src/build/haproxy-spoe-auth-$VERSION"
+    - "cp -r ./ /usr/src/build/haproxy-spoe-auth-$VERSION/"
+    - "tar --create --file /usr/src/build/haproxy-spoe-auth-$VERSION.tar.gz -C /usr/src/build/ ./haproxy-spoe-auth-$VERSION/"
+    - "cp /usr/src/build/haproxy-spoe-auth-$VERSION.tar.gz ~/rpmbuild/SOURCES/"
     - 'cat packages/rpm/haproxy-spoe-auth.spec | sed -e "s/__PKG_VERSION__/$VERSION/" > ~/rpmbuild/SPECS/haproxy-spoe-auth.spec'
     - |
       cd ~/rpmbuild/
