@@ -23,7 +23,8 @@ state.
 
 %build
 mkdir -p build/
-go build -C ./cmd/haproxy-spoe-auth/ -v -ldflags=-linkmode=external -o ../../build/haproxy-spoe-auth
+cd ./cmd/haproxy-spoe-auth/
+go build -v -ldflags=-linkmode=external -o ../../build/haproxy-spoe-auth
 
 %install
 rm -rf %{buildroot}
