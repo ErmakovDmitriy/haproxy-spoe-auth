@@ -26,8 +26,8 @@ test:
 package/rpm/bin-only:
   stage: "package"
   image: "docker.io/library/rockylinux:8"
-  dependencies:
-    - "build"
+  # dependencies:
+  #   - "build"
   artifacts:
     when: on_success
     expire_in: "5 days"
