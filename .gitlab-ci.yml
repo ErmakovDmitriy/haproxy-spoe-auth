@@ -3,6 +3,10 @@ stages:
   - "build"
   - "package"
 
+default:
+  tags:
+    - "kubernetes"
+
 test:
   stage: "test"
   image: "docker.io/library/golang:1.21"
