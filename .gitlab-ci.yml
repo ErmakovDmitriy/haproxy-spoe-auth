@@ -29,7 +29,7 @@ package/rpm/bin-only:
       if test $CI_COMMIT_TAG != ""; then
         VERSION="$CI_COMMIT_TAG"
       else
-        VERSION="$(git tag --list | tail -1 | sed -e 's/^v//').$(date +%s).$CI_COMMIT_SHORT_SHA"
+        VERSION="0.0.$(date +%s).$CI_COMMIT_SHORT_SHA"
       fi
     - "dnf install -y rpmdevtools rpmlint golang"
     - "rpmdev-setuptree"
@@ -37,6 +37,7 @@ package/rpm/bin-only:
     - "cp -r ./ /usr/src/build/haproxy-spoe-auth-$VERSION/"
     - "tar --create --file /usr/src/build/haproxy-spoe-auth-$VERSION.tar.gz -C /usr/src/build/ ./haproxy-spoe-auth-$VERSION/"
     - "cp /usr/src/build/haproxy-spoe-auth-$VERSION.tar.gz ~/rpmbuild/SOURCES/"
+    - "cp /usr/src/build/haproxy-spoe-auth-$VERSION/packages/rpm/haproxy-spoe-auth.sysusers ~/rpmbuild/SOURCES/haproxy-spoe-auth-$VERSION.sysusers"
     - 'cat packages/rpm/haproxy-spoe-auth.spec | sed -e "s/__PKG_VERSION__/$VERSION/" > ~/rpmbuild/SPECS/haproxy-spoe-auth.spec'
     - |
       cd ~/rpmbuild/
