@@ -36,7 +36,7 @@ package/rpm/bin-only:
     when: on_success
     expire_in: "5 days"
     paths:
-      - "./RPMS/"
+      - "./RPMS/*"
   script:
     - |
       if test $CI_COMMIT_TAG != ""; then
