@@ -29,7 +29,7 @@ package/rpm/bin-only:
       if test $CI_COMMIT_TAG != ""; then
         VERSION="$CI_COMMIT_TAG"
       else
-        VERSION="$CI_COMMIT_SHORT_SHA"
+        VERSION="$(git tag --list | tail -1 | sed -e 's/^v//').$(date +%s).$CI_COMMIT_SHORT_SHA"
       fi
     - "dnf install -y rpmdevtools rpmlint golang"
     - "rpmdev-setuptree"

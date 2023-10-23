@@ -8,14 +8,13 @@ URL:            https://github.com/ErmakovDmitriy/haproxy-spoe-auth
 Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires:  golang systemd-rpm-macros
+%{?sysusers_requires_compat}
 Requires:       systemd
 
 %description
 HAProxy SPOE agent which implements OpenID and LDAP authentication mechanisms
 and allows extracting an authenticated user information to an HAProxy session
 state.
-
-%{?sysusers_requires_compat}
 
 %global debug_package %{nil}
 
