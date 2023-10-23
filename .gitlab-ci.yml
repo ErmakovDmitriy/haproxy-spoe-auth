@@ -36,7 +36,7 @@ package/rpm/bin-only:
     when: on_success
     expire_in: "5 days"
     paths:
-      - "./RPMS/*"
+      - "RPMS/*"
   script:
     - |
       if test $CI_COMMIT_TAG != ""; then
@@ -54,6 +54,6 @@ package/rpm/bin-only:
     - |
       cd ~/rpmbuild/
       rpmbuild -bb SPECS/haproxy-spoe-auth.spec
-    - "cp -r ~/rpmbuild/RPMS/ $CI_BUILDS_DIR/"
+    - "cp -rf ~/rpmbuild/RPMS/ $CI_PROJECT_DIR/"
     - "ls -lah $CI_BUILDS_DIR"
-    - "find $CI_BUILDS_DIR"
+    - "find $CI_PROJECT_DIR"
