@@ -42,3 +42,9 @@ package/rpm/bin-only:
       cd ~/rpmbuild/
       rpmbuild -bb SPECS/haproxy-spoe-auth.spec
     - "cp -rf ~/rpmbuild/RPMS/ $CI_PROJECT_DIR/"
+    - 'echo "Saving in registry"'
+    - |
+      __FILES=$(find $CI_PROJECT_DIR/ -name '*.rpm')
+      for file in $__FILES; do
+        curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file $file "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/haproxy-spoe-auth/$VERSION/$(basename $file)"
+      done
