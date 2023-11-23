@@ -8,6 +8,8 @@ server:
 
 # If set, the LDAP authenticator is enabled
 ldap:
+  # SPOE message name as it is defined in HAProxy spoe-message {{ NAME }} value.
+  spoe_message: "try-auth-ldap"
   # The URI and port to the ldap server
   uri: ldaps://ldap
   port: 636
@@ -23,6 +25,8 @@ ldap:
 
 # If set, the OpenID Connect authenticator is enabled
 oidc:
+  # SPOE message name as it is defined in HAProxy spoe-message {{ NAME }} value.
+  spoe_message: "try-auth-oidc"
   # The URL to the OpenID Connect provider. This is the URL hosting the discovery endpoint
   provider_url: http://dex.example.com:9080/dex
   # The client_id and client_secret of the app representing the SPOE agent

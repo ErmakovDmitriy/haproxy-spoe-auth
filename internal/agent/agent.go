@@ -1,7 +1,6 @@
 package agent
 
 import (
-	"log"
 	"net"
 	"os"
 
@@ -24,15 +23,20 @@ func StartAgent(interfaceAddr string, authenticators map[string]auth.Authenticat
 	agent := agent.New(func(request *request.Request) {
 		var authenticated bool = false
 		var hasError bool = false
+		var sPOEMessageFound bool = false
 
 		for authentifier_name, authentifier := range authenticators {
 			msg, err := request.Messages.GetByName(authentifier_name)
 			if err == nil {
-				logrus.Debugf("new message with name %s received", msg.Name)
+				sPOEMessageFound = true
+
+				var log = logrus.WithField("authenticator", authentifier_name)
+
+				log.Debugf("new message with name %s received", msg.Name)
 
 				isAuthenticated, replyActions, err := authentifier.Authenticate(msg)
 				if err != nil {
-					logrus.Errorf("unable to authenticate user: %v", err)
+					log.Errorf("unable to authenticate user: %v", err)
 					hasError = true
 					break
 				}
@@ -41,8 +45,16 @@ func StartAgent(interfaceAddr string, authenticators map[string]auth.Authenticat
 				if isAuthenticated {
 					authenticated = true
 				}
+				log.WithField("isAuthenticated", isAuthenticated).Debug("Authentication result")
+
 				break
 			}
+		}
+
+		if !sPOEMessageFound {
+			logrus.Error("Agent request does not contain a message matching configured authenticators, please check " +
+				"that 'spoe-message' directive in HAProxy SPOE engine config " +
+				"matches .ldap.spoe_message and/or .oidc.spoe_message configuration fields in the agent config")
 		}
 
 		if hasError {
@@ -58,13 +70,13 @@ func StartAgent(interfaceAddr string, authenticators map[string]auth.Authenticat
 
 	listener, err := net.Listen("tcp", interfaceAddr)
 	if err != nil {
-		log.Printf("error create listener, %v", err)
+		logrus.Printf("error create listener, %v", err)
 		os.Exit(1)
 	}
 	defer listener.Close()
 
 	logrus.Infof("agent starting and listening on %s with %d authenticators", interfaceAddr, len(authenticators))
 	if err := agent.Serve(listener); err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 	}
 }

@@ -49,7 +49,12 @@ func main() {
 	authenticators := map[string]auth.Authenticator{}
 
 	if viper.IsSet("ldap") {
-		ldapAuthentifier := auth.NewLDAPAuthenticator(auth.LDAPConnectionDetails{
+		var SPOEMessageName = viper.GetString("ldap.spoe_message")
+		if SPOEMessageName == "" {
+			logrus.Fatal("Configuration field ldap.spoe_message is not defined")
+		}
+
+		var ldapConnCfg = auth.LDAPConnectionDetails{
 			URI:        viper.GetString("ldap.uri"),
 			Port:       viper.GetInt("ldap.port"),
 			UserDN:     viper.GetString("ldap.user_dn"),
@@ -57,25 +62,42 @@ func main() {
 			BaseDN:     viper.GetString("ldap.base_dn"),
 			UserFilter: viper.GetString("ldap.user_filter"),
 			VerifyTLS:  viper.GetBool("ldap.verify_tls"),
-		})
-		authenticators["try-auth-ldap"] = ldapAuthentifier
+		}
+
+		ldapAuthentifier := auth.NewLDAPAuthenticator(ldapConnCfg)
+		authenticators[SPOEMessageName] = ldapAuthentifier
+
+		// Print configuration.
+		logrus.WithFields(logrus.Fields{
+			"authenticator": "LDAP",
+			"SPOE_message":  SPOEMessageName,
+			"URI":           ldapConnCfg.URI,
+			"port":          ldapConnCfg.Port,
+			"user_dn":       ldapConnCfg.UserDN,
+			"user_filter":   ldapConnCfg.UserFilter,
+			"tls_verify":    ldapConnCfg.VerifyTLS,
+		}).Info("LDAP authenticator configuration")
+	} else {
+		logrus.WithField("authenticator", "LDAP").Info("LDAP authentication is not configured")
 	}
 
 	if viper.IsSet("oidc") {
-		var clientsStore auth.OIDCClientsStore
-		if !*dynamicClientInfo {
-			// TODO: watch the config file to update the list of clients dynamically
-			var clientsConfig map[string]auth.OIDCClientConfig
-			err := viper.UnmarshalKey("oidc.clients", &clientsConfig)
-			if err != nil {
-				logrus.Panic(err)
-			}
-			clientsStore = auth.NewStaticOIDCClientStore(clientsConfig)
-		} else {
-			clientsStore = auth.NewEmptyStaticOIDCClientStore()
+		var SPOEMessageName = viper.GetString("oidc.spoe_message")
+		if SPOEMessageName == "" {
+			logrus.Fatal("Configuration field oidc.spoe_message is not defined")
 		}
 
-		oidcAuthenticator := auth.NewOIDCAuthenticator(auth.OIDCAuthenticatorOptions{
+		var clientsStore auth.OIDCClientsStore
+
+		// TODO: watch the config file to update the list of clients dynamically
+		var clientsConfig map[string]auth.OIDCClientConfig
+		err := viper.UnmarshalKey("oidc.clients", &clientsConfig)
+		if err != nil {
+			logrus.Panic(err)
+		}
+		clientsStore = auth.NewStaticOIDCClientStore(clientsConfig)
+
+		oidcAuthConfig := auth.OIDCAuthenticatorOptions{
 			OAuth2AuthenticatorOptions: auth.OAuth2AuthenticatorOptions{
 				RedirectCallbackPath:       viper.GetString("oidc.oauth2_callback_path"),
 				LogoutPath:                 viper.GetString("oidc.oauth2_logout_path"),
@@ -90,8 +112,39 @@ func main() {
 			},
 			ProviderURL:      viper.GetString("oidc.provider_url"),
 			EncryptionSecret: viper.GetString("oidc.encryption_secret"),
+		}
+
+		oidcAuthenticator := auth.NewOIDCAuthenticator(oidcAuthConfig)
+		authenticators[SPOEMessageName] = oidcAuthenticator
+
+		// Print configuration.
+		logrus.WithFields(logrus.Fields{
+			"authenticator":           "OAuth2",
+			"SPOE_message":            SPOEMessageName,
+			"oauth2_callback_path":    oidcAuthConfig.RedirectCallbackPath,
+			"oauth2_logout_path":      oidcAuthConfig.LogoutPath,
+			"oauth2_healthcheck_path": oidcAuthConfig.HealthCheckPath,
+			"callback_addr":           oidcAuthConfig.CallbackAddr,
+			"cookie_name":             oidcAuthConfig.CookieName,
+			"cookie_secure":           oidcAuthConfig.CookieSecure,
+			"cookie_ttl_seconds":      oidcAuthConfig.CookieTTL.Seconds(),
+			"dynamic_client_info":     oidcAuthConfig.ReadClientInfoFromMessages,
+			"provider_url":            oidcAuthConfig.ProviderURL,
+		}).Info("OAuth2 authenticator configuration")
+
+		var clientsLog = logrus.WithFields(logrus.Fields{
+			"authenticator": "OAuth2",
+			"message_type":  "client_info",
 		})
-		authenticators["try-auth-oidc"] = oidcAuthenticator
+		for k, v := range clientsConfig {
+			clientsLog.WithFields(logrus.Fields{
+				"client_domain": k,
+				"client_id":     v.ClientID,
+				"redirect_url":  v.RedirectURL,
+			}).Info("OAuth2 static client configuration")
+		}
+	} else {
+		logrus.WithField("authenticator", "OAuth2").Info("OAuth2 authentication is not configured")
 	}
 
 	agent.StartAgent(viper.GetString("server.addr"), authenticators)
