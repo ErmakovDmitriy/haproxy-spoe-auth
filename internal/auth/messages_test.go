@@ -116,11 +116,11 @@ func (ts *TestBuildTokenClaimsSuite) TestClaims() {
 		}
 	)
 
-	tokenClaims, err := parseTokenClaims((*oidc.IDToken)(unsafe.Pointer(jwtToken)))
+	TokenClaims, err := parseTokenClaims((*oidc.IDToken)(unsafe.Pointer(jwtToken)))
 	ts.NoError(err, "Token claims must be parsed without error")
 
 	for _, tc := range tests {
-		actions := BuildTokenClaimsMessage(tokenClaims, tc.claimPaths)
+		actions := BuildTokenClaimsMessage(TokenClaims, tc.claimPaths)
 
 		ts.Equal(tc.expectedValue, actions, "Unexpected SPOE actions")
 	}
@@ -165,77 +165,77 @@ func (ts *TestEvaluateTokenExpressionsSuite) TestExpressions() {
 				expressions: []OAuthTokenExpression{
 					// Value is in the token.
 					{
-						tokenClaim: "per-service.service1.roles",
-						rawValue:   "service1-role-1",
-						operation:  in,
+						TokenClaim: "per-service.service1.roles",
+						RawValue:   "service1-role-1",
+						Operation:  in,
 					},
 					{
-						tokenClaim: "per-service.service1.roles",
-						rawValue:   "service1-role-1",
-						operation:  notIn,
+						TokenClaim: "per-service.service1.roles",
+						RawValue:   "service1-role-1",
+						Operation:  notIn,
 					},
 					// Value is not in the token.
 					{
-						tokenClaim: "per-service.service1.roles",
-						rawValue:   "non-existing-field",
-						operation:  in,
+						TokenClaim: "per-service.service1.roles",
+						RawValue:   "non-existing-field",
+						Operation:  in,
 					},
 					{
-						tokenClaim: "per-service.service1.roles",
-						rawValue:   "non-existing-field",
-						operation:  notIn,
+						TokenClaim: "per-service.service1.roles",
+						RawValue:   "non-existing-field",
+						Operation:  notIn,
 					},
 					// Path which does not exist.
 					{
-						tokenClaim: "email",
-						operation:  doesNotExist,
+						TokenClaim: "email",
+						Operation:  doesNotExist,
 					},
 					{
-						tokenClaim: "email",
-						operation:  exists,
+						TokenClaim: "email",
+						Operation:  exists,
 					},
 					// Path which exists.
 					{
-						tokenClaim: "name",
-						operation:  exists,
+						TokenClaim: "name",
+						Operation:  exists,
 					},
 					{
-						tokenClaim: "name",
-						operation:  doesNotExist,
+						TokenClaim: "name",
+						Operation:  doesNotExist,
 					},
 					// Path does not exist in the token.
 					{
-						tokenClaim: "non-existing-path.service1.roles",
-						rawValue:   "non-existing-field",
-						operation:  in,
+						TokenClaim: "non-existing-path.service1.roles",
+						RawValue:   "non-existing-field",
+						Operation:  in,
 					},
 					{
-						tokenClaim: "non-existing-path.service1.roles",
-						rawValue:   "non-existing-field",
-						operation:  notIn,
+						TokenClaim: "non-existing-path.service1.roles",
+						RawValue:   "non-existing-field",
+						Operation:  notIn,
 					},
 					// Values with spaces or other characters.
 					{
-						tokenClaim: "values-with-spaces",
-						rawValue:   "role 1",
-						operation:  in,
+						TokenClaim: "values-with-spaces",
+						RawValue:   "role 1",
+						Operation:  in,
 					},
 					{
-						tokenClaim: "values-with-spaces",
-						rawValue:   "role 1",
-						operation:  notIn,
+						TokenClaim: "values-with-spaces",
+						RawValue:   "role 1",
+						Operation:  notIn,
 					},
 					// Key with spaces.
 					{
-						tokenClaim: "key with spaces",
-						rawValue:   "value1",
-						operation:  notIn,
+						TokenClaim: "key with spaces",
+						RawValue:   "value1",
+						Operation:  notIn,
 					},
 					// Capital letters.
 					{
-						tokenClaim: "per-service.service2.roles",
-						rawValue:   "service2-Role-3",
-						operation:  in,
+						TokenClaim: "per-service.service2.roles",
+						RawValue:   "service2-Role-3",
+						Operation:  in,
 					},
 				},
 				expectedValue: []action.Action{
@@ -265,11 +265,11 @@ func (ts *TestEvaluateTokenExpressionsSuite) TestExpressions() {
 		}
 	)
 
-	tokenClaims, err := parseTokenClaims((*oidc.IDToken)(unsafe.Pointer(jwtToken)))
+	TokenClaims, err := parseTokenClaims((*oidc.IDToken)(unsafe.Pointer(jwtToken)))
 	ts.NoError(err, "Token claims must be parsed without error")
 
 	for _, tc := range tests {
-		actions, err := EvaluateTokenExpressions(tokenClaims, tc.expressions)
+		actions, err := EvaluateTokenExpressions(TokenClaims, tc.expressions)
 
 		ts.NoError(err, "Must evaluate expressions without an error")
 		ts.Equal(tc.expectedValue, actions, "Unexpected SPOE actions")

@@ -159,12 +159,8 @@ func (oa *OIDCAuthenticator) withOAuth2Config(domain string, callback func(c oau
 	return callback(oauth2Config)
 }
 
-func (oa *OIDCAuthenticator) verifyIDToken(context context.Context, domain string, rawIDToken string) (*oidc.IDToken, error) {
-	clientConfig, err := oa.options.ClientsStore.GetClient(domain)
-	if err != nil {
-		return nil, fmt.Errorf("unable to find an oidc client for domain %s", domain)
-	}
-	verifier := oa.provider.Verifier(&oidc.Config{ClientID: clientConfig.ClientID})
+func (oa *OIDCAuthenticator) verifyIDToken(context context.Context, oidcClientConfig *OIDCClientConfig, rawIDToken string) (*oidc.IDToken, error) {
+	verifier := oa.provider.Verifier(&oidc.Config{ClientID: oidcClientConfig.ClientID})
 
 	// Parse and verify ID Token payload.
 	idToken, err := verifier.Verify(context, rawIDToken)
@@ -174,13 +170,13 @@ func (oa *OIDCAuthenticator) verifyIDToken(context context.Context, domain strin
 	return idToken, nil
 }
 
-func (oa *OIDCAuthenticator) decryptCookie(cookieValue string, domain string) (*oidc.IDToken, error) {
+func (oa *OIDCAuthenticator) decryptCookie(cookieValue string, oidcClientConfig *OIDCClientConfig) (*oidc.IDToken, error) {
 	idToken, err := oa.encryptor.Decrypt(cookieValue)
 	if err != nil {
 		return nil, fmt.Errorf("unable to decrypt session cookie: %w", err)
 	}
 
-	token, err := oa.verifyIDToken(context.Background(), domain, idToken)
+	token, err := oa.verifyIDToken(context.Background(), oidcClientConfig, idToken)
 	return token, err
 }
 
@@ -328,6 +324,8 @@ func extractDomainFromHost(host string) string {
 
 // Authenticate treat an authentication request coming from HAProxy
 func (oa *OIDCAuthenticator) Authenticate(msg *message.Message) (bool, []action.Action, error) {
+	var log = logrus.WithField("context", "Authenticate")
+
 	oauthArgs, err := extractOAuth2Args(msg, oa.options.ReadClientInfoFromMessages)
 	if err != nil {
 		return false, nil, fmt.Errorf("unable to extract origin URL: %v", err)
@@ -335,33 +333,58 @@ func (oa *OIDCAuthenticator) Authenticate(msg *message.Message) (bool, []action.
 
 	domain := extractDomainFromHost(oauthArgs.host)
 
-	if oauthArgs.clientid != "" {
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		log = log.WithFields(logrus.Fields{
+			"ssl":                       oauthArgs.ssl,
+			"host":                      oauthArgs.host,
+			"domain":                    domain,
+			"pathq":                     oauthArgs.pathq,
+			"cookie":                    oauthArgs.cookie,
+			"request_token_claims":      oauthArgs.tokenClaims,
+			"request_token_expressions": oauthArgs.tokenExpressions,
+		})
+
+		log.Debug("OAuth2 authenticate request")
+	}
+
+	if oa.options.ReadClientInfoFromMessages && oauthArgs.clientid != "" {
 		oa.options.ClientsStore.AddClient(domain, oauthArgs.clientid, oauthArgs.clientsecret, oauthArgs.redirecturl)
 	}
 
-	_, err = oa.options.ClientsStore.GetClient(domain)
-	if err == ErrOIDCClientConfigNotFound {
-		return false, nil, nil
-	} else if err != nil {
+	oidcClientConfig, err := oa.options.ClientsStore.GetClient(domain)
+	if err != nil {
 		return false, nil, fmt.Errorf("unable to find an oidc client for domain %s", domain)
+	}
+
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		log = log.WithFields(logrus.Fields{
+			"client_id":           oidcClientConfig.ClientID,
+			"client_redirect_url": oidcClientConfig.RedirectURL,
+		})
+
+		log.Debug("OAuth2 authenticate request")
 	}
 
 	// Verify the cookie to make sure the user is authenticated
 	if oauthArgs.cookie != "" {
-		idToken, err := oa.decryptCookie(oauthArgs.cookie, domain)
+		// Here we trust that the cookies were encrypted and authenticated
+		// by the SPOE Agent's encryption key.
+		idToken, err := oa.decryptCookie(oauthArgs.cookie, oidcClientConfig)
 		if err != nil {
 			// CoreOS/go-oidc does not have error types, so the errors are handled using strings
 			// comparison.
 			if errors.Is(err, &oidc.TokenExpiredError{}) || strings.Contains(err.Error(), "oidc:") {
-				authorizationURL, e := oa.builaAuthorizationURL(domain, oauthArgs)
+				authorizationURL, e := oa.buildAuthorizationURL(domain, oauthArgs)
 				if e != nil {
 					return false, nil, e
 				}
 
-				logrus.Infof("Authentication failed, redirecting to OIDC provider %s, reason: %s", authorizationURL, err)
+				log.WithError(err).Infof("Authentication failed, redirecting to OIDC provider %s", authorizationURL)
 
 				return false, []action.Action{BuildRedirectURLMessage(authorizationURL)}, nil
 			}
+
+			log.WithError(err).Info("Unauthenticated: can not decryptCookie")
 
 			return false, nil, err
 		}
@@ -375,11 +398,13 @@ func (oa *OIDCAuthenticator) Authenticate(msg *message.Message) (bool, []action.
 		// Parse Token.
 		tokenClaims, err := parseTokenClaims(idToken)
 		if err != nil {
+			log.WithError(err).Error("Can not parse ID Token claims")
 			return false, []action.Action{BuildHasErrorMessage()}, fmt.Errorf("can not parse ID Token claims: %w", err)
 		}
 
 		if logrus.IsLevelEnabled(logrus.DebugLevel) {
-			logrus.WithField("tokenClaims", tokenClaims.String()).Debug("Parsed token claims")
+			log = log.WithField("id_token_claims", tokenClaims)
+			log.Debug("Parsed Token claims")
 		}
 
 		var actions []action.Action
@@ -390,7 +415,8 @@ func (oa *OIDCAuthenticator) Authenticate(msg *message.Message) (bool, []action.
 			claimsActs := BuildTokenClaimsMessage(tokenClaims, oauthArgs.tokenClaims)
 
 			if logrus.IsLevelEnabled(logrus.DebugLevel) {
-				logrus.WithField("actions", claimsActs).Debug("tokenClaims")
+				log = log.WithField("token_claims_response_actions", claimsActs)
+				log.Debug("tokenClaims")
 			}
 
 			actions = append(actions, claimsActs...)
@@ -404,7 +430,9 @@ func (oa *OIDCAuthenticator) Authenticate(msg *message.Message) (bool, []action.
 			}
 
 			if logrus.IsLevelEnabled(logrus.DebugLevel) {
-				logrus.WithField("actions", expr).Debug("tokenExpressions")
+				log = log.WithField("token_expressions_response_actions", expr)
+
+				log.Debug("tokenExpressions")
 			}
 
 			actions = append(actions, expr...)
@@ -413,15 +441,20 @@ func (oa *OIDCAuthenticator) Authenticate(msg *message.Message) (bool, []action.
 		return true, actions, nil
 	}
 
-	authorizationURL, err := oa.builaAuthorizationURL(domain, oauthArgs)
+	authorizationURL, err := oa.buildAuthorizationURL(domain, oauthArgs)
 	if err != nil {
 		return false, nil, err
+	}
+
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		log = log.WithField("redirect_authorization_url", authorizationURL)
+		log.Debug("Sending redirect message to Authorization URL")
 	}
 
 	return false, []action.Action{BuildRedirectURLMessage(authorizationURL)}, nil
 }
 
-func (oa *OIDCAuthenticator) builaAuthorizationURL(domain string, oauthArgs OAuthArgs) (string, error) {
+func (oa *OIDCAuthenticator) buildAuthorizationURL(domain string, oauthArgs OAuthArgs) (string, error) {
 	currentTime := time.Now()
 
 	var state State
@@ -475,8 +508,19 @@ func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, error
 
 		domain := extractDomainFromHost(r.Host)
 
+		oidcClientConfig, err := oa.options.ClientsStore.GetClient(domain)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"domain": domain,
+				"error":  err,
+			}).Error("Can not find OAuth2 client for the given domain")
+			http.Error(w, "Bad request", http.StatusBadRequest)
+
+			return
+		}
+
 		var oauth2Token *oauth2.Token
-		err := oa.withOAuth2Config(domain, func(config oauth2.Config) error {
+		err = oa.withOAuth2Config(domain, func(config oauth2.Config) error {
 			token, err := config.Exchange(r.Context(), r.URL.Query().Get("code"))
 			oauth2Token = token
 			return err
@@ -496,7 +540,7 @@ func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, error
 		}
 
 		// Parse and verify ID Token payload.
-		idToken, err := oa.verifyIDToken(r.Context(), domain, rawIDToken)
+		idToken, err := oa.verifyIDToken(r.Context(), oidcClientConfig, rawIDToken)
 		if err != nil {
 			logrus.Errorf("unable to verify the ID token: %v", err)
 			http.Error(w, "Bad request", http.StatusBadRequest)
@@ -597,7 +641,7 @@ func parseTokenExpressions(arg string) ([]OAuthTokenExpression, error) {
 		switch vals[0] {
 		case operationExists:
 			// Format is "{{ operation }};{{ token claims path }}"
-			expr.operation = exists
+			expr.Operation = exists
 
 			if valsLen != 2 {
 				return nil, fmt.Errorf(
@@ -605,10 +649,10 @@ func parseTokenExpressions(arg string) ([]OAuthTokenExpression, error) {
 					ErrParseTokenExpressionRequest, operationExists, valsLen, expessions[i])
 			}
 
-			expr.tokenClaim = vals[1]
+			expr.TokenClaim = vals[1]
 
 		case operationDoesNotExist:
-			expr.operation = doesNotExist
+			expr.Operation = doesNotExist
 
 			if valsLen != 2 {
 				return nil, fmt.Errorf(
@@ -616,10 +660,10 @@ func parseTokenExpressions(arg string) ([]OAuthTokenExpression, error) {
 					ErrParseTokenExpressionRequest, operationDoesNotExist, valsLen, expessions[i])
 			}
 
-			expr.tokenClaim = vals[1]
+			expr.TokenClaim = vals[1]
 
 		case operationIn:
-			expr.operation = in
+			expr.Operation = in
 
 			if valsLen != 3 {
 				return nil, fmt.Errorf(
@@ -627,11 +671,11 @@ func parseTokenExpressions(arg string) ([]OAuthTokenExpression, error) {
 					ErrParseTokenExpressionRequest, operationIn, valsLen, expessions[i])
 			}
 
-			expr.tokenClaim = vals[1]
-			expr.rawValue = vals[2]
+			expr.TokenClaim = vals[1]
+			expr.RawValue = vals[2]
 
 		case operationNotIn:
-			expr.operation = notIn
+			expr.Operation = notIn
 
 			if valsLen != 3 {
 				return nil, fmt.Errorf(
@@ -639,8 +683,8 @@ func parseTokenExpressions(arg string) ([]OAuthTokenExpression, error) {
 					ErrParseTokenExpressionRequest, operationNotIn, valsLen, expessions[i])
 			}
 
-			expr.tokenClaim = vals[1]
-			expr.rawValue = vals[2]
+			expr.TokenClaim = vals[1]
+			expr.RawValue = vals[2]
 
 		default:
 			return nil, fmt.Errorf(

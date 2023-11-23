@@ -41,9 +41,9 @@ const (
 )
 
 type OAuthTokenExpression struct {
-	tokenClaim string
-	rawValue   string
-	operation  OAuthTokenExpressionOperation
+	TokenClaim string
+	RawValue   string
+	Operation  OAuthTokenExpressionOperation
 }
 
 func existsIn(tokenValue *gjson.Result, lookupVal string) bool {

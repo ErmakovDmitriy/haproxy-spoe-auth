@@ -56,11 +56,11 @@ func EvaluateTokenExpressions(claimsVals *gjson.Result, tokenExpressions []OAuth
 	for i := range tokenExpressions {
 		pe := &tokenExpressions[i]
 
-		value := claimsVals.Get(pe.tokenClaim)
+		value := claimsVals.Get(pe.TokenClaim)
 
-		switch pe.operation {
+		switch pe.Operation {
 		case in:
-			if existsIn(&value, pe.rawValue) {
+			if existsIn(&value, pe.RawValue) {
 				result = append(
 					result,
 					action.NewSetVar(action.ScopeSession, computeSPOEExpressionKey(pe), valueTrue))
@@ -72,7 +72,7 @@ func EvaluateTokenExpressions(claimsVals *gjson.Result, tokenExpressions []OAuth
 			}
 
 		case notIn:
-			if !existsIn(&value, pe.rawValue) {
+			if !existsIn(&value, pe.RawValue) {
 				result = append(
 					result,
 					action.NewSetVar(action.ScopeSession, computeSPOEExpressionKey(pe), valueTrue))
@@ -141,17 +141,17 @@ func computeSPOEExpressionKey(expr *OAuthTokenExpression) string {
 	var result = &strings.Builder{}
 
 	_, _ = result.WriteString("token_expression_")
-	_, _ = result.WriteString(expr.operation.String())
+	_, _ = result.WriteString(expr.Operation.String())
 	_, _ = result.WriteRune('_')
-	_, _ = result.WriteString(normalizeSPOEKV(expr.tokenClaim))
+	_, _ = result.WriteString(normalizeSPOEKV(expr.TokenClaim))
 
-	if expr.operation == exists || expr.operation == doesNotExist {
+	if expr.Operation == exists || expr.Operation == doesNotExist {
 		return result.String()
 	}
 
 	_, _ = result.WriteRune('_')
 
-	_, _ = result.WriteString(normalizeSPOEExpressionValue(expr.rawValue))
+	_, _ = result.WriteString(normalizeSPOEExpressionValue(expr.RawValue))
 
 	return result.String()
 }
