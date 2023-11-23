@@ -186,17 +186,17 @@ func computeSPOEExpressionKey(expr *OAuthTokenExpression) string {
 	var result = &strings.Builder{}
 
 	_, _ = result.WriteString("token_expression_")
-	_, _ = result.WriteString(expr.operation.String())
+	_, _ = result.WriteString(expr.Operation.String())
 	_, _ = result.WriteRune('_')
 	_, _ = result.WriteString(computeSPOEClaimKey(expr.tokenClaim))
 
-	if expr.operation == exists || expr.operation == doesNotExist {
+	if expr.Operation == exists || expr.Operation == doesNotExist {
 		return result.String()
 	}
 
 	_, _ = result.WriteRune('_')
 
-	_, _ = result.WriteString(normalizeSPOEExpressionValue(expr.rawValue))
+	_, _ = result.WriteString(normalizeSPOEExpressionValue(expr.RawValue))
 
 	return result.String()
 }

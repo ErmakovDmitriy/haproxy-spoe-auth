@@ -653,6 +653,7 @@ func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, error
 		if !ok {
 			logrus.Error("cannot retrieve pkce verifier")
 			http.Error(w, "Bad request", http.StatusBadRequest)
+
 			return
 		}
 
