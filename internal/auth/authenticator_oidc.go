@@ -180,7 +180,7 @@ func (oa *OIDCAuthenticator) decryptCookie(cookieValue string, oidcClientConfig 
 	return token, err
 }
 
-func extractOAuth2Args(msg *message.Message, readClientInfoFromMessages bool) (OAuthArgs, error) {
+func extractOAuth2Args(msg *message.Message, readClientInfoFromMessages bool, log *logrus.Entry) (OAuthArgs, error) {
 	var cookie string
 	var clientid, clientsecret, redirecturl *string
 	var tokenClaims []string
@@ -220,8 +220,8 @@ func extractOAuth2Args(msg *message.Message, readClientInfoFromMessages bool) (O
 	cookieValue, ok := msg.KV.Get("arg_cookie")
 	if ok {
 		cookie, ok = cookieValue.(string)
-		if !ok {
-			return OAuthArgs{}, fmt.Errorf("cookie is not a string: %+v", cookieValue)
+		if !ok && logrus.IsLevelEnabled(logrus.DebugLevel) {
+			log.WithField("request_cookie_raw", cookieValue).Debug("Request cookie is not a string or not defined")
 		}
 
 		// Token claims
@@ -340,7 +340,7 @@ func extractDomainFromHost(host string) string {
 func (oa *OIDCAuthenticator) Authenticate(msg *message.Message) (bool, []action.Action, error) {
 	var log = logrus.WithField("context", "Authenticate")
 
-	oauthArgs, err := extractOAuth2Args(msg, oa.options.ReadClientInfoFromMessages)
+	oauthArgs, err := extractOAuth2Args(msg, oa.options.ReadClientInfoFromMessages, log)
 	if err != nil {
 		return false, nil, fmt.Errorf("unable to extract origin URL: %v", err)
 	}
