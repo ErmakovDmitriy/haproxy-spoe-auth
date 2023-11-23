@@ -432,7 +432,6 @@ func (oa *OIDCAuthenticator) Authenticate(msg *message.Message) (bool, []action.
 
 			if logrus.IsLevelEnabled(logrus.DebugLevel) {
 				log = log.WithField("response_actions_token_claims", claimsActs)
-				log.Debug("tokenClaims")
 			}
 
 			actions = append(actions, claimsActs...)
@@ -447,11 +446,13 @@ func (oa *OIDCAuthenticator) Authenticate(msg *message.Message) (bool, []action.
 
 			if logrus.IsLevelEnabled(logrus.DebugLevel) {
 				log = log.WithField("response_actions_token_expressions", expr)
-
-				log.Debug("tokenExpressions")
 			}
 
 			actions = append(actions, expr...)
+		}
+
+		if logrus.IsLevelEnabled(logrus.DebugLevel) {
+			log.Debug("Computed SPOE response")
 		}
 
 		return true, actions, nil
