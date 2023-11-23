@@ -352,13 +352,14 @@ func (oa *OIDCAuthenticator) Authenticate(msg *message.Message) (bool, []action.
 			"ssl":                       oauthArgs.ssl,
 			"host":                      oauthArgs.host,
 			"domain":                    domain,
-			"pathq":                     oauthArgs.pathq,
-			"cookie":                    oauthArgs.cookie,
 			"request_token_claims":      oauthArgs.tokenClaims,
 			"request_token_expressions": oauthArgs.tokenExpressions,
 		})
 
-		log.Debug("OAuth2 authenticate request")
+		log.WithFields(logrus.Fields{
+			"cookie": oauthArgs.cookie,
+			"pathq":  oauthArgs.pathq,
+		}).Debug("OAuth2 authenticate request")
 	}
 
 	if oa.options.ReadClientInfoFromMessages && oauthArgs.clientid != "" {
@@ -430,7 +431,7 @@ func (oa *OIDCAuthenticator) Authenticate(msg *message.Message) (bool, []action.
 			claimsActs := BuildTokenClaimsMessage(tokenClaims, oauthArgs.tokenClaims)
 
 			if logrus.IsLevelEnabled(logrus.DebugLevel) {
-				log = log.WithField("token_claims_response_actions", claimsActs)
+				log = log.WithField("response_actions_token_claims", claimsActs)
 				log.Debug("tokenClaims")
 			}
 
@@ -445,7 +446,7 @@ func (oa *OIDCAuthenticator) Authenticate(msg *message.Message) (bool, []action.
 			}
 
 			if logrus.IsLevelEnabled(logrus.DebugLevel) {
-				log = log.WithField("token_expressions_response_actions", expr)
+				log = log.WithField("response_actions_token_expressions", expr)
 
 				log.Debug("tokenExpressions")
 			}
