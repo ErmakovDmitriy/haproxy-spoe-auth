@@ -193,7 +193,7 @@ func extractOAuth2Args(msg *message.Message, readClientInfoFromMessages bool) (O
 	}
 	ssl, ok := sslValue.(bool)
 	if !ok {
-		return OAuthArgs{}, fmt.Errorf("SSL is not a bool: %v", sslValue)
+		return OAuthArgs{}, fmt.Errorf("SSL is not a bool: %+v", sslValue)
 	}
 
 	// host
@@ -203,7 +203,7 @@ func extractOAuth2Args(msg *message.Message, readClientInfoFromMessages bool) (O
 	}
 	host, ok := hostValue.(string)
 	if !ok {
-		return OAuthArgs{}, fmt.Errorf("host is not a string: %v", hostValue)
+		return OAuthArgs{}, fmt.Errorf("host is not a string: %+v", hostValue)
 	}
 
 	// pathq
@@ -213,33 +213,40 @@ func extractOAuth2Args(msg *message.Message, readClientInfoFromMessages bool) (O
 	}
 	pathq, ok := pathqValue.(string)
 	if !ok {
-		return OAuthArgs{}, fmt.Errorf("pathq is not a string: %v", pathqValue)
+		return OAuthArgs{}, fmt.Errorf("pathq is not a string: %+v", pathqValue)
 	}
 
 	// cookie
 	cookieValue, ok := msg.KV.Get("arg_cookie")
 	if ok {
-		cookie, _ = cookieValue.(string)
+		cookie, ok = cookieValue.(string)
+		if !ok {
+			return OAuthArgs{}, fmt.Errorf("cookie is not a string: %+v", cookieValue)
+		}
 
 		// Token claims
 		tokenClaimsValue, ok := msg.KV.Get("arg_token_claims")
 		if ok {
 			strV, ok := tokenClaimsValue.(string)
-			if ok {
-				tokenClaims = strings.Split(strV, " ")
+			if !ok {
+				return OAuthArgs{}, fmt.Errorf("arg_token_claims is not a string: %+v", tokenClaimsValue)
 			}
+
+			tokenClaims = strings.Split(strV, " ")
 		}
 
 		// Token expressions.
 		tokenExpressionsValue, ok := msg.KV.Get("arg_token_expressions")
 		if ok {
 			strV, ok := tokenExpressionsValue.(string)
-			if ok {
-				var err error
-				tokenExpressions, err = parseTokenExpressions(strV)
-				if err != nil {
-					return OAuthArgs{}, fmt.Errorf("can not parse arg_token_expressions: %w", err)
-				}
+			if !ok {
+				return OAuthArgs{}, fmt.Errorf("arg_token_expressions is not a string: %+v", tokenExpressionsValue)
+			}
+
+			var err error
+			tokenExpressions, err = parseTokenExpressions(strV)
+			if err != nil {
+				return OAuthArgs{}, fmt.Errorf("can not parse arg_token_expressions: %w", err)
 			}
 		}
 	}
@@ -248,11 +255,11 @@ func extractOAuth2Args(msg *message.Message, readClientInfoFromMessages bool) (O
 		// client_id
 		clientidValue, ok := msg.KV.Get("arg_client_id")
 		if !ok {
-			logrus.Debugf("clientid is not defined : %v", clientidValue)
+			logrus.Debugf("clientid is not defined : %+v", clientidValue)
 		} else {
 			clientidStr, ok := clientidValue.(string)
 			if !ok {
-				logrus.Debugf("clientid is not a string: %v", clientidValue)
+				logrus.Debugf("clientid is not a string: %+v", clientidValue)
 			} else {
 				clientid = new(string)
 				*clientid = clientidStr
@@ -262,11 +269,11 @@ func extractOAuth2Args(msg *message.Message, readClientInfoFromMessages bool) (O
 		// client_secret
 		clientsecretValue, ok := msg.KV.Get("arg_client_secret")
 		if !ok {
-			logrus.Debugf("clientsecret is not defined : %v", clientsecretValue)
+			logrus.Debugf("clientsecret is not defined : %+v", clientsecretValue)
 		} else {
 			clientsecretStr, ok := clientsecretValue.(string)
 			if !ok {
-				logrus.Debugf("clientsecret is not a string: %v", clientsecretValue)
+				logrus.Debugf("clientsecret is not a string: %+v", clientsecretValue)
 			} else {
 				clientsecret = new(string)
 				*clientsecret = clientsecretStr
@@ -276,11 +283,11 @@ func extractOAuth2Args(msg *message.Message, readClientInfoFromMessages bool) (O
 		// redirect_url
 		redirecturlValue, ok := msg.KV.Get("arg_redirect_url")
 		if !ok {
-			logrus.Debugf("redirecturl is not defined : %v", redirecturlValue)
+			logrus.Debugf("redirecturl is not defined : %+v", redirecturlValue)
 		} else {
 			redirecturlStr, ok := redirecturlValue.(string)
 			if !ok {
-				logrus.Debugf("redirecturl is not a string: %v", redirecturlValue)
+				logrus.Debugf("redirecturl is not a string: %+v", redirecturlValue)
 			} else {
 				redirecturl = new(string)
 				*redirecturl = redirecturlStr
@@ -294,11 +301,18 @@ func extractOAuth2Args(msg *message.Message, readClientInfoFromMessages bool) (O
 		clientsecret = &temp
 		redirecturl = &temp
 	}
-	return OAuthArgs{ssl: ssl, host: host, pathq: pathq,
-			cookie: cookie, clientid: *clientid,
-			clientsecret: *clientsecret, redirecturl: *redirecturl,
+
+	return OAuthArgs{
+			ssl:              ssl,
+			host:             host,
+			pathq:            pathq,
+			cookie:           cookie,
+			clientid:         *clientid,
+			clientsecret:     *clientsecret,
+			redirecturl:      *redirecturl,
 			tokenClaims:      tokenClaims,
-			tokenExpressions: tokenExpressions},
+			tokenExpressions: tokenExpressions,
+		},
 		nil
 }
 
