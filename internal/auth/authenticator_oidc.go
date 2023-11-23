@@ -392,6 +392,7 @@ func (oa *OIDCAuthenticator) Authenticate(msg *message.Message) (bool, []action.
 		// Parse TokenClaims and Token Expressions and set the values in response.
 		if len(oauthArgs.tokenClaims) == 0 && len(oauthArgs.tokenExpressions) == 0 {
 			// Skip parsing.
+			log.Debug("No token claims and token expressions requested, shortcut authentication with success")
 			return true, nil, nil
 		}
 

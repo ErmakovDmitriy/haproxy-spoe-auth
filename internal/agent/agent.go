@@ -25,6 +25,17 @@ func StartAgent(interfaceAddr string, authenticators map[string]auth.Authenticat
 		var hasError bool = false
 		var sPOEMessageFound bool = false
 
+		if logrus.IsLevelEnabled(logrus.DebugLevel) {
+			// Dump all messages from HAProxy for debug purposes.
+			logrus.WithFields(logrus.Fields{
+				"spoe_request_engine_id": request.EngineID,
+				"spoe_request_frame_id":  request.FrameID,
+				"spoe_request_stream_id": request.StreamID,
+				"spoe_request_actions":   request.Actions,
+				"spoe_request_messages":  request.Messages,
+			}).Debug("Received SPOE request")
+		}
+
 		for authentifier_name, authentifier := range authenticators {
 			msg, err := request.Messages.GetByName(authentifier_name)
 			if err == nil {
