@@ -226,7 +226,7 @@ func extractOAuth2Args(msg *message.Message, readClientInfoFromMessages bool, lo
 
 		// Token claims
 		tokenClaimsValue, ok := msg.KV.Get("arg_token_claims")
-		if ok {
+		if ok && tokenClaimsValue != nil {
 			strV, ok := tokenClaimsValue.(string)
 			if !ok {
 				return OAuthArgs{}, fmt.Errorf("arg_token_claims is not a string: %+v", tokenClaimsValue)
@@ -237,7 +237,7 @@ func extractOAuth2Args(msg *message.Message, readClientInfoFromMessages bool, lo
 
 		// Token expressions.
 		tokenExpressionsValue, ok := msg.KV.Get("arg_token_expressions")
-		if ok {
+		if ok && tokenExpressionsValue != nil {
 			strV, ok := tokenExpressionsValue.(string)
 			if !ok {
 				return OAuthArgs{}, fmt.Errorf("arg_token_expressions is not a string: %+v", tokenExpressionsValue)
