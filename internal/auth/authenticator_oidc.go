@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 	"text/template"
 	"time"
@@ -743,13 +742,4 @@ func parseTokenClaims(idToken *oidc.IDToken) (*gjson.Result, error) {
 	claimsVals := gjson.ParseBytes(claimsData)
 
 	return &claimsVals, nil
-}
-
-func decodeRequestValue(s string) (string, error) {
-	val, err := url.QueryUnescape(s)
-	if err != nil {
-		return "", err
-	}
-
-	return val, nil
 }
