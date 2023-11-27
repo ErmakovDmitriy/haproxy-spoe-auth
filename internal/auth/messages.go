@@ -114,30 +114,29 @@ func EvaluateTokenExpressions(claimsVals *gjson.Result, tokenExpressions []OAuth
 	return result, nil
 }
 
-// func normalizeSPOEKV(s string) string {
-// 	var result = &strings.Builder{}
+func normalizeSPOEKV(s string) string {
+	var result = &strings.Builder{}
 
-// 	result.Grow(len(s))
+	result.Grow(len(s))
 
-// 	for _, c := range s {
-// 		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') {
-// 			_, _ = result.WriteRune(c)
-// 		} else {
-// 			_, _ = result.WriteRune('_')
-// 		}
-// 	}
+	for _, c := range s {
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') {
+			_, _ = result.WriteRune(c)
+		} else {
+			_, _ = result.WriteRune('_')
+		}
+	}
 
-// 	return result.String()
-// }
-
-func computeSPOEClaimKey(key string) string {
-	// return "token_claim_" + normalizeSPOEKV(key)
-	return "token_claim_" + encodeResponseString(key)
+	return result.String()
 }
 
-// func normalizeSPOEExpressionValue(val string) string {
-// 	return normalizeSPOEKV(val)
-// }
+func computeSPOEClaimKey(key string) string {
+	return "token_claim_" + normalizeSPOEKV(key)
+}
+
+func normalizeSPOEExpressionValue(val string) string {
+	return normalizeSPOEKV(val)
+}
 
 func decodeRequestValue(s string) (string, error) {
 	val, err := url.QueryUnescape(s)
@@ -148,18 +147,13 @@ func decodeRequestValue(s string) (string, error) {
 	return val, nil
 }
 
-func encodeResponseString(s string) string {
-	return url.QueryEscape(s)
-}
-
 func computeSPOEExpressionKey(expr *OAuthTokenExpression) string {
 	var result = &strings.Builder{}
 
 	_, _ = result.WriteString("token_expression_")
 	_, _ = result.WriteString(expr.Operation.String())
 	_, _ = result.WriteRune('_')
-	// _, _ = result.WriteString(normalizeSPOEKV(expr.TokenClaim))
-	_, _ = result.WriteString(encodeResponseString(expr.TokenClaim))
+	_, _ = result.WriteString(normalizeSPOEKV(expr.TokenClaim))
 
 	if expr.Operation == exists || expr.Operation == doesNotExist {
 		return result.String()
@@ -167,8 +161,7 @@ func computeSPOEExpressionKey(expr *OAuthTokenExpression) string {
 
 	_, _ = result.WriteRune('_')
 
-	// _, _ = result.WriteString(normalizeSPOEExpressionValue(expr.RawValue))
-	_, _ = result.WriteString(encodeResponseString(expr.RawValue))
+	_, _ = result.WriteString(normalizeSPOEExpressionValue(expr.RawValue))
 
 	return result.String()
 }
