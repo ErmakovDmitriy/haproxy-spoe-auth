@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"text/template"
 	"time"
@@ -232,7 +233,19 @@ func extractOAuth2Args(msg *message.Message, readClientInfoFromMessages bool, lo
 				return OAuthArgs{}, fmt.Errorf("arg_token_claims is not a string: %+v", tokenClaimsValue)
 			}
 
-			tokenClaims = strings.Split(strV, " ")
+			encTokenClaims := strings.Split(strV, " ")
+
+			tokenClaims = make([]string, 0, len(encTokenClaims))
+
+			// Decode each claim as they can contain spaces and other characters.
+			for i := range encTokenClaims {
+				val, err := decodeRequestValue(encTokenClaims[i])
+				if err != nil {
+					return OAuthArgs{}, fmt.Errorf("arg_token_claims %q can not be decoded: %w", encTokenClaims[i], err)
+				}
+
+				tokenClaims = append(tokenClaims, val)
+			}
 		}
 
 		// Token expressions.
@@ -643,14 +656,19 @@ func parseTokenExpressions(arg string) ([]OAuthTokenExpression, error) {
 	var result = make([]OAuthTokenExpression, 0, len(expessions))
 
 	for i := range expessions {
-		vals := strings.Split(expessions[i], ";")
+		expression_val, err := decodeRequestValue(expessions[i])
+		if err != nil {
+			return nil, fmt.Errorf("Can not decode token expression value %q: %w", expessions[i], err)
+		}
+
+		vals := strings.Split(expression_val, ";")
 
 		valsLen := len(vals)
 
 		if valsLen < 2 {
 			return nil, fmt.Errorf(
 				"%w: not enough arguments, minimum number of arguments is 2, given expression is %q",
-				ErrParseTokenExpressionRequest, expessions[i])
+				ErrParseTokenExpressionRequest, expression_val)
 		}
 
 		var expr = OAuthTokenExpression{}
@@ -663,7 +681,7 @@ func parseTokenExpressions(arg string) ([]OAuthTokenExpression, error) {
 			if valsLen != 2 {
 				return nil, fmt.Errorf(
 					"%w: operation %q requires exactly 2 arguments, %d given, request: %q",
-					ErrParseTokenExpressionRequest, operationExists, valsLen, expessions[i])
+					ErrParseTokenExpressionRequest, operationExists, valsLen, expression_val)
 			}
 
 			expr.TokenClaim = vals[1]
@@ -674,7 +692,7 @@ func parseTokenExpressions(arg string) ([]OAuthTokenExpression, error) {
 			if valsLen != 2 {
 				return nil, fmt.Errorf(
 					"%w: operation %q requires exactly 2 arguments, %d given, request: %q",
-					ErrParseTokenExpressionRequest, operationDoesNotExist, valsLen, expessions[i])
+					ErrParseTokenExpressionRequest, operationDoesNotExist, valsLen, expression_val)
 			}
 
 			expr.TokenClaim = vals[1]
@@ -685,7 +703,7 @@ func parseTokenExpressions(arg string) ([]OAuthTokenExpression, error) {
 			if valsLen != 3 {
 				return nil, fmt.Errorf(
 					"%w: operation %q requires exactly 3 arguments, %d given, request: %q",
-					ErrParseTokenExpressionRequest, operationIn, valsLen, expessions[i])
+					ErrParseTokenExpressionRequest, operationIn, valsLen, expression_val)
 			}
 
 			expr.TokenClaim = vals[1]
@@ -697,7 +715,7 @@ func parseTokenExpressions(arg string) ([]OAuthTokenExpression, error) {
 			if valsLen != 3 {
 				return nil, fmt.Errorf(
 					"%w: operation %q requires exactly 3 arguments, %d given, request: %q",
-					ErrParseTokenExpressionRequest, operationNotIn, valsLen, expessions[i])
+					ErrParseTokenExpressionRequest, operationNotIn, valsLen, expression_val)
 			}
 
 			expr.TokenClaim = vals[1]
@@ -706,7 +724,7 @@ func parseTokenExpressions(arg string) ([]OAuthTokenExpression, error) {
 		default:
 			return nil, fmt.Errorf(
 				"%w: unsupported operation %q in a token expression %q",
-				ErrParseTokenExpressionRequest, vals[i], expessions[i])
+				ErrParseTokenExpressionRequest, vals[i], expression_val)
 		}
 
 		result = append(result, expr)
@@ -725,4 +743,13 @@ func parseTokenClaims(idToken *oidc.IDToken) (*gjson.Result, error) {
 	claimsVals := gjson.ParseBytes(claimsData)
 
 	return &claimsVals, nil
+}
+
+func decodeRequestValue(s string) (string, error) {
+	val, err := url.QueryUnescape(s)
+	if err != nil {
+		return "", err
+	}
+
+	return val, nil
 }
