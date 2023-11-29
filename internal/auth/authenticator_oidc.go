@@ -27,6 +27,8 @@ import (
 // by an expiration in a JWT token in a future review.
 const ValidStateDuration = 30 * time.Second
 
+var callbackServerMux = http.NewServeMux()
+
 // OIDCAuthenticatorOptions options to customize to the OIDC authenticator
 type OIDCAuthenticatorOptions struct {
 	OAuth2AuthenticatorOptions
@@ -125,11 +127,12 @@ func NewOIDCAuthenticator(options OIDCAuthenticatorOptions) *OIDCAuthenticator {
 	}
 
 	go func() {
-		http.HandleFunc(options.RedirectCallbackPath, oa.handleOAuth2Callback(tmpl, errorTmpl))
-		http.HandleFunc(options.LogoutPath, oa.handleOAuth2Logout())
+		callbackServerMux.HandleFunc(options.RedirectCallbackPath, oa.handleOAuth2Callback(tmpl, errorTmpl))
+		callbackServerMux.HandleFunc(options.LogoutPath, oa.handleOAuth2Logout())
 		logrus.Infof("OIDC API is exposed on %s", options.CallbackAddr)
-		http.HandleFunc(options.HealthCheckPath, handleHealthCheck)
-		logrus.Fatalln(http.ListenAndServe(options.CallbackAddr, nil))
+		callbackServerMux.HandleFunc(options.HealthCheckPath, handleHealthCheck)
+
+		logrus.Fatalln(http.ListenAndServe(options.CallbackAddr, callbackServerMux))
 	}()
 
 	return oa

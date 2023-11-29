@@ -28,7 +28,8 @@ func main() {
 	var configFile string
 	flag.StringVar(&configFile, "config", "", "The path to the configuration file")
 	dynamicClientInfo := flag.Bool("dynamic-client-info", false, "Dynamically read client information")
-	pprofBind := flag.String("pprof-bind", "", "pprof socket to listen to")
+	var pprofBind string
+	flag.StringVar(&pprofBind, "pprof-bind", "", "pprof socket to listen to")
 	flag.Parse()
 
 	if configFile != "" {
@@ -151,10 +152,11 @@ func main() {
 	}
 
 	// Starting profiler.
-	if *pprofBind != "" {
+	if pprofBind != "" {
 		go func() {
-			logrus.WithField("listen_socket", *pprofBind).Info("Starting pprof server")
-			if err := http.ListenAndServe(*pprofBind, nil); err != nil {
+			logrus.WithField("listen_socket", pprofBind).Info("Starting pprof server")
+
+			if err := http.ListenAndServe(pprofBind, nil); err != nil {
 				logrus.WithError(err).Fatal("Can not start pprof server")
 			}
 		}()
