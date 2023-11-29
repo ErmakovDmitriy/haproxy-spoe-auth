@@ -82,7 +82,9 @@ the more there are chances the session has been compromised.
 The SPOE agent supports information extraction from an OpenID ID token claims data.
 
 The required claims list must be passed from HAProxy in a variable `arg_token_claims`
-as JSON paths separated by spaces. On successful authentication, the agent
+as JSON paths separated by spaces.
+If the claims themselves contain spaces, dashes or other characters not in [a-zA-Z0-9], the characters must be URL Query encoded.
+On successful authentication, the agent
 will set HAProxy session variables, one variable per requested claim as:
 
 ```
@@ -91,7 +93,10 @@ token_claim_{{ JSON path | replace with '_' everything except a-z, A-Z, 0-9 }}={
 
 See [messages_test.go](../internal/auth/messages_test.go) for examples.
 
+### Token Expressions
+
 The SPOE agent supports simple expressions evaluation based on an OpenID ID token claims data.
+If the claims or their values contain spaces, dashes or other characters not in [a-zA-Z0-9], the characters must be URL Query encoded.
 
 Supported operations are:
 
@@ -132,7 +137,5 @@ See [messages_test.go](../internal/auth/messages_test.go) for examples.
 ## TODO
 
 * Add a mechanism to denylist a token.
-* Allow the SPOE agent to match a certain list of groups the user belongs to.
 * Think about secret rotation.
 * Prevent replay attacks by putting some kind of nonce in the state.
-* Consider using URL encoded values for token claims and expressions args or any other way to handle keys and values with spaces.
