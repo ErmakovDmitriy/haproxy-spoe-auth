@@ -29,7 +29,7 @@ func main() {
 	flag.StringVar(&configFile, "config", "", "The path to the configuration file")
 	dynamicClientInfo := flag.Bool("dynamic-client-info", false, "Dynamically read client information")
 	var pprofBind string
-	flag.StringVar(&pprofBind, "pprof-bind", "", "pprof socket to listen to")
+	flag.StringVar(&pprofBind, "pprof", "", "pprof socket to listen to")
 	flag.Parse()
 
 	if configFile != "" {
@@ -49,6 +49,12 @@ func main() {
 	if viper.GetBool("server.log_json") {
 		logrus.SetFormatter(&logrus.JSONFormatter{})
 	}
+
+	logrus.WithFields(logrus.Fields{
+		"config":                 configFile,
+		"enable-dynamic-clients": *dynamicClientInfo,
+		"pprof":                  pprofBind,
+	}).Info("Command line flags")
 
 	authenticators := map[string]auth.Authenticator{}
 
@@ -159,6 +165,8 @@ func main() {
 			if err := http.ListenAndServe(pprofBind, nil); err != nil {
 				logrus.WithError(err).Fatal("Can not start pprof server")
 			}
+
+			logrus.Info("Stopped pprof server")
 		}()
 	}
 
