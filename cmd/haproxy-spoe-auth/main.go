@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
@@ -10,6 +9,7 @@ import (
 	"github.com/criteo/haproxy-spoe-auth/internal/agent"
 	"github.com/criteo/haproxy-spoe-auth/internal/auth"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
@@ -25,12 +25,16 @@ func LogLevelFromLogString(level string) logrus.Level {
 }
 
 func main() {
-	var configFile string
-	flag.StringVar(&configFile, "config", "", "The path to the configuration file")
-	dynamicClientInfo := flag.Bool("dynamic-client-info", false, "Dynamically read client information")
-	var pprofBind string
-	flag.StringVar(&pprofBind, "pprof", "", "pprof socket to listen to")
-	flag.Parse()
+	var (
+		configFile        string
+		pprofBind         string
+		dynamicClientInfo bool
+	)
+
+	pflag.StringVarP(&configFile, "config", "c", "", "The path to the configuration file")
+	pflag.BoolVarP(&dynamicClientInfo, "dynamic-client-info", "d", false, "Dynamically read client information")
+	pflag.StringVarP(&pprofBind, "pprof", "p", "", "pprof socket to listen to")
+	pflag.Parse()
 
 	if configFile != "" {
 		viper.SetConfigFile(configFile)
@@ -51,9 +55,9 @@ func main() {
 	}
 
 	logrus.WithFields(logrus.Fields{
-		"config":                 configFile,
-		"enable-dynamic-clients": *dynamicClientInfo,
-		"pprof":                  pprofBind,
+		"config":              configFile,
+		"dynamic-client-info": dynamicClientInfo,
+		"pprof":               pprofBind,
 	}).Info("Command line flags")
 
 	authenticators := map[string]auth.Authenticator{}
@@ -118,7 +122,7 @@ func main() {
 				CookieTTL:                  viper.GetDuration("oidc.cookie_ttl_seconds") * time.Second,
 				SignatureSecret:            viper.GetString("oidc.signature_secret"),
 				ClientsStore:               clientsStore,
-				ReadClientInfoFromMessages: *dynamicClientInfo,
+				ReadClientInfoFromMessages: dynamicClientInfo,
 			},
 			ProviderURL:      viper.GetString("oidc.provider_url"),
 			EncryptionSecret: viper.GetString("oidc.encryption_secret"),
