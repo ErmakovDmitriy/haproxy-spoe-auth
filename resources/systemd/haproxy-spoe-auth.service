@@ -7,7 +7,7 @@ Restart=always
 User=haproxy-spoe-auth
 Group=haproxy-spoe-auth
 EnvironmentFile=/etc/default/haproxy-spoe-auth
-ExecStart=/usr/bin/haproxy-spoe-auth --config="$HAPROXY_SPOE_AUTH_CONFIG_FILE" --dynamic-client-info="$HAPROXY_SPOE_AUTH_DYNAMIC_CLIENTS" --pprof="$HAPROXY_SPOE_AUTH_PPROF_SOCKET"
+ExecStart=/usr/bin/haproxy-spoe-auth
 TimeoutStopSec=20s
 StandardOutput=journal
 StandardError=journal

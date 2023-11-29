@@ -1,6 +1,6 @@
 # Path to auth configuration file.
-HAPROXY_SPOE_AUTH_CONFIG_FILE="/etc/haproxy-spoe-auth/config.yml"
+HAPROXY_SPOE_AUTH_CONFIG="/etc/haproxy-spoe-auth/config.yml"
 # Allow using dynamic OpenID auths.
-HAPROXY_SPOE_AUTH_DYNAMIC_CLIENTS="true"
+HAPROXY_SPOE_AUTH_DYNAMIC="false"
 # Pprof listen socket, empty - disabled
-HAPROXY_SPOE_AUTH_PPROF_SOCKET=""
+HAPROXY_SPOE_AUTH_PPROF=""

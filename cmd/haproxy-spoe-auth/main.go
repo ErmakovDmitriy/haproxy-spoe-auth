@@ -24,20 +24,45 @@ func LogLevelFromLogString(level string) logrus.Level {
 	}
 }
 
-func main() {
-	var (
-		configFile        string
-		pprofBind         string
-		dynamicClientInfo bool
-	)
+type flagsConfig struct {
+	dynamicClientInfo bool
+	configFile        string
+	pprofBind         string
+}
 
-	pflag.StringVarP(&configFile, "config", "c", "", "The path to the configuration file")
-	pflag.BoolVarP(&dynamicClientInfo, "dynamic-client-info", "d", false, "Dynamically read client information")
-	pflag.StringVarP(&pprofBind, "pprof", "p", "", "pprof socket to listen to")
+func parseFlags() flagsConfig {
+	var cfg flagsConfig
+
+	pflag.StringP("config", "c", "", "The path to the configuration file")
+	pflag.BoolP("dynamic", "d", false, "Dynamically read client information")
+	pflag.StringP("pprof", "p", "", "pprof socket to listen to")
 	pflag.Parse()
 
-	if configFile != "" {
-		viper.SetConfigFile(configFile)
+	if err := viper.BindPFlags(pflag.CommandLine); err != nil {
+		logrus.WithError(err).Fatalln("Can not init cmd flags")
+	}
+
+	viper.SetEnvPrefix("HAPROXY_SPOE_AUTH")
+
+	vars := []string{"config", "dynamic", "pprof"}
+	for _, v := range vars {
+		if err := viper.BindEnv(v); err != nil {
+			logrus.WithError(err).Fatalln("Can not bind Viper environment variable")
+		}
+	}
+
+	cfg.configFile = viper.GetString("config")
+	cfg.dynamicClientInfo = viper.GetBool("dynamic")
+	cfg.pprofBind = viper.GetString("pprof")
+
+	return cfg
+}
+
+func main() {
+	flagsCfg := parseFlags()
+
+	if flagsCfg.configFile != "" {
+		viper.SetConfigFile(flagsCfg.configFile)
 	} else {
 		viper.SetConfigName("config") // name of config file (without extension)
 		viper.SetConfigType("yaml")   // REQUIRED if the config file does not have the extension in the name
@@ -55,9 +80,9 @@ func main() {
 	}
 
 	logrus.WithFields(logrus.Fields{
-		"config":              configFile,
-		"dynamic-client-info": dynamicClientInfo,
-		"pprof":               pprofBind,
+		"config":              flagsCfg.configFile,
+		"dynamic-client-info": flagsCfg.dynamicClientInfo,
+		"pprof":               flagsCfg.pprofBind,
 	}).Info("Command line flags")
 
 	authenticators := map[string]auth.Authenticator{}
@@ -122,7 +147,7 @@ func main() {
 				CookieTTL:                  viper.GetDuration("oidc.cookie_ttl_seconds") * time.Second,
 				SignatureSecret:            viper.GetString("oidc.signature_secret"),
 				ClientsStore:               clientsStore,
-				ReadClientInfoFromMessages: dynamicClientInfo,
+				ReadClientInfoFromMessages: flagsCfg.dynamicClientInfo,
 			},
 			ProviderURL:      viper.GetString("oidc.provider_url"),
 			EncryptionSecret: viper.GetString("oidc.encryption_secret"),
@@ -162,11 +187,11 @@ func main() {
 	}
 
 	// Starting profiler.
-	if pprofBind != "" {
+	if flagsCfg.pprofBind != "" {
 		go func() {
-			logrus.WithField("listen_socket", pprofBind).Info("Starting pprof server")
+			logrus.WithField("listen_socket", flagsCfg.pprofBind).Info("Starting pprof server")
 
-			if err := http.ListenAndServe(pprofBind, nil); err != nil {
+			if err := http.ListenAndServe(flagsCfg.pprofBind, nil); err != nil {
 				logrus.WithError(err).Fatal("Can not start pprof server")
 			}
 
