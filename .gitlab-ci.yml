@@ -53,6 +53,7 @@ container-image/build:
   stage: build
   variables:
     BUILDAH_CACHE: "true"
+    BRANCHES_TO_INCLUDE: "master"
   trigger:
     strategy: depend
     include:
