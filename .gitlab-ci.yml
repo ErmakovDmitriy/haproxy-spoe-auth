@@ -51,6 +51,8 @@ package/rpm/bin-only:
 
 container-image/build:
   stage: build
+  variables:
+    BUILDAH_CACHE: "true"
   trigger:
     strategy: depend
     include:
