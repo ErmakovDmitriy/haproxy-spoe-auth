@@ -1,17 +1,13 @@
-FROM golang:1.20
-
-# Using root user creates permission issues on the host, particularly with go.sum being regenerated within the container.
-RUN useradd -s /bin/bash -m -U dev
-
-RUN go install github.com/go-delve/delve/cmd/dlv@v1.8.0
-RUN go install github.com/cespare/reflex@v0.3.1
+FROM docker.io/library/golang:1.21-alpine3.18 as builder
 
 WORKDIR /usr/app
-ADD go.mod go.mod
-ADD go.sum go.sum
+COPY go.mod go.mod
+COPY go.sum go.sum
 RUN go mod download
-RUN chown -R dev /usr/app
+COPY . .
+RUN go build -C cmd/haproxy-spoe-auth -o /usr/app/haproxy-spoe-auth
 
-USER dev
+FROM docker.io/library/alpine:3.18
+COPY --from=builder /usr/app/haproxy-spoe-auth /usr/local/bin/
+CMD ["/usr/local/bin/haproxy-spoe-auth", "-c", "/etc/haproxy-spoe-auth/config.yml"]
 
-ENTRYPOINT ["/scripts/entrypoint.sh"]

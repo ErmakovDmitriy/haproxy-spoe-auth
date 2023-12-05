@@ -531,9 +531,24 @@ func (oa *OIDCAuthenticator) handleOAuth2Logout() http.HandlerFunc {
 
 func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, errorTmpl *template.Template) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		var logger *logrus.Entry = logrus.WithFields(logrus.Fields{
+			"client":  r.RemoteAddr,
+			"context": "OAuth2Callback",
+		})
+
+		if logrus.IsLevelEnabled(logrus.DebugLevel) {
+			logger = logger.WithFields(logrus.Fields{
+				"request_url": r.RequestURI,
+				"query":       r.URL.Query(),
+				"state":       r.URL.Query().Get("state"),
+				"code":        r.URL.Query().Get("code"),
+			})
+			logger.Debug("Received callback request")
+		}
+
 		stateB64Payload := r.URL.Query().Get("state")
 		if stateB64Payload == "" {
-			logrus.Error("cannot extract the state query param")
+			logger.Error("cannot extract the state query param")
 			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
@@ -542,7 +557,7 @@ func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, error
 
 		oidcClientConfig, err := oa.options.ClientsStore.GetClient(domain)
 		if err != nil {
-			logrus.WithFields(logrus.Fields{
+			logger.WithFields(logrus.Fields{
 				"domain": domain,
 				"error":  err,
 			}).Error("Can not find OAuth2 client for the given domain")
@@ -558,7 +573,7 @@ func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, error
 			return err
 		})
 		if err != nil {
-			logrus.Errorf("unable to retrieve OAuth2 token: %v", err)
+			logger.Errorf("unable to retrieve OAuth2 token: %v", err)
 			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
@@ -566,7 +581,7 @@ func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, error
 		// Extract the ID Token from OAuth2 token.
 		rawIDToken, ok := oauth2Token.Extra("id_token").(string)
 		if !ok {
-			logrus.Errorf("unable to extract the raw id_token: %v", err)
+			logger.Errorf("unable to extract the raw id_token: %v", err)
 			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
@@ -574,14 +589,14 @@ func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, error
 		// Parse and verify ID Token payload.
 		idToken, err := oa.verifyIDToken(r.Context(), oidcClientConfig, rawIDToken)
 		if err != nil {
-			logrus.Errorf("unable to verify the ID token: %v", err)
+			logger.WithError(err).Errorf("unable to verify the ID token: %v", err)
 			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
 
 		stateJSONPayload, err := base64.StdEncoding.DecodeString(stateB64Payload)
 		if err != nil {
-			logrus.Errorf("unable to decode origin URL from state: %v", err)
+			logger.WithError(err).Errorf("unable to decode origin URL from state: %v", err)
 			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
@@ -589,13 +604,13 @@ func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, error
 		var state State
 		err = msgpack.Unmarshal(stateJSONPayload, &state)
 		if err != nil {
-			logrus.Errorf("unable to unmarshal the state payload: %v", err)
+			logger.WithError(err).Errorf("unable to unmarshal the state payload: %v", err)
 			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
 
 		if state.Timestamp.Add(ValidStateDuration).Before(time.Now()) {
-			logrus.Errorf("state value has expired: %v", err)
+			logger.WithError(err).Errorf("state value has expired: %v", err)
 			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
@@ -605,12 +620,12 @@ func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, error
 			scheme = "http"
 		}
 		url := fmt.Sprintf("%s://%s%s", scheme, r.Host, state.PathAndQueryString)
-		logrus.Debugf("target url request by user %s", url)
+		logger.Debugf("target url request by user %s", url)
 		signature := oa.computeStateSignature(&state)
 		if signature != state.Signature {
 			err = errorTmpl.Execute(w, struct{ URL string }{URL: url})
 			if err != nil {
-				logrus.Errorf("unable to render error template: %v", err)
+				logger.WithError(err).Errorf("unable to render error template: %v", err)
 				http.Error(w, "Bad request", http.StatusBadRequest)
 				return
 			}
@@ -620,7 +635,7 @@ func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, error
 		encryptedIDToken, err := oa.encryptor.Encrypt(rawIDToken)
 
 		if err != nil {
-			logrus.Errorf("unable to encrypt the ID token: %v", err)
+			logger.WithError(err).Errorf("unable to encrypt the ID token: %v", err)
 			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
@@ -646,7 +661,7 @@ func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, error
 
 		err = tmpl.Execute(w, struct{ URL string }{URL: string(url)})
 		if err != nil {
-			logrus.Errorf("unable to render redirect template: %v", err)
+			logger.WithError(err).Errorf("unable to render redirect template: %v", err)
 			http.Error(w, "Bad request", http.StatusBadRequest)
 		}
 	}

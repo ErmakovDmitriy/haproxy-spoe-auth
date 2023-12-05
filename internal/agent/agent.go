@@ -8,6 +8,7 @@ import (
 	"github.com/negasus/haproxy-spoe-go/action"
 	"github.com/negasus/haproxy-spoe-go/agent"
 	"github.com/negasus/haproxy-spoe-go/logger"
+	"github.com/negasus/haproxy-spoe-go/payload/kv"
 	"github.com/negasus/haproxy-spoe-go/request"
 	"github.com/sirupsen/logrus"
 )
@@ -24,16 +25,30 @@ func StartAgent(interfaceAddr string, authenticators map[string]auth.Authenticat
 		var authenticated bool = false
 		var hasError bool = false
 		var sPOEMessageFound bool = false
+		var logWriter = logrus.NewEntry(logrus.StandardLogger())
 
 		if logrus.IsLevelEnabled(logrus.DebugLevel) {
 			// Dump all messages from HAProxy for debug purposes.
-			logrus.WithFields(logrus.Fields{
+			var msgs = make(map[string][]kv.Item, request.Messages.Len())
+
+			for i := 0; i < request.Messages.Len(); i++ {
+				msg, err := request.Messages.GetByIndex(i)
+				if err != nil {
+					logWriter.WithError(err).Error("Can not get SPOE message by index")
+					request.Actions = append(request.Actions, auth.BuildHasErrorMessage())
+					return
+				}
+
+				msgs[msg.Name] = msg.KV.Data()
+			}
+
+			logWriter = logrus.WithFields(logrus.Fields{
 				"spoe_request_engine_id": request.EngineID,
 				"spoe_request_frame_id":  request.FrameID,
 				"spoe_request_stream_id": request.StreamID,
-				"spoe_request_actions":   request.Actions,
-				"spoe_request_messages":  request.Messages,
-			}).Debug("Received SPOE request")
+				"spoe_request_messages":  msgs,
+			})
+			logWriter.Debug("Received SPOE request")
 		}
 
 		for authentifier_name, authentifier := range authenticators {
@@ -41,13 +56,14 @@ func StartAgent(interfaceAddr string, authenticators map[string]auth.Authenticat
 			if err == nil {
 				sPOEMessageFound = true
 
-				var log = logrus.WithField("authenticator", authentifier_name)
-
-				log.Debugf("new message with name %s received", msg.Name)
+				if logrus.IsLevelEnabled(logrus.DebugLevel) {
+					logWriter = logWriter.WithField("authenticator", authentifier_name)
+					logWriter.Debugf("new message with name %s received", msg.Name)
+				}
 
 				isAuthenticated, replyActions, err := authentifier.Authenticate(msg)
 				if err != nil {
-					log.Errorf("unable to authenticate user: %v", err)
+					logWriter.Errorf("unable to authenticate user: %v", err)
 					hasError = true
 					break
 				}
@@ -56,7 +72,11 @@ func StartAgent(interfaceAddr string, authenticators map[string]auth.Authenticat
 				if isAuthenticated {
 					authenticated = true
 				}
-				log.WithField("isAuthenticated", isAuthenticated).Debug("Authentication result")
+
+				if logrus.IsLevelEnabled(logrus.DebugLevel) {
+					logWriter = logWriter.WithField("isAuthenticated", isAuthenticated)
+					logWriter.Debug("Authentication result")
+				}
 
 				break
 			}
@@ -77,6 +97,12 @@ func StartAgent(interfaceAddr string, authenticators map[string]auth.Authenticat
 				request.Actions = append(request.Actions, NotAuthenticatedMessage)
 			}
 		}
+
+		if logrus.IsLevelEnabled(logrus.DebugLevel) {
+			logWriter = logWriter.WithField("spoe_request_actions", request.Actions)
+			logWriter.Debug("SPOE actions")
+		}
+
 	}, logger.NewDefaultLog())
 
 	listener, err := net.Listen("tcp", interfaceAddr)
