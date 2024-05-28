@@ -43,8 +43,7 @@ test:
         echo "Bad checksum. stop"
         exit 1
       fi
-      cd /opt/
-      tar xvpf /tmp/go.tar.gz
+      tar xvpf /tmp/go.tar.gz -C /opt/
       export PATH=$PATH:/opt/go/bin/
       go version
     - "rpmdev-setuptree"
