@@ -7,6 +7,10 @@ default:
   tags:
     - "kubernetes"
 
+variables:
+  GO_URL: "https://go.dev/dl/go1.22.3.linux-amd64.tar.gz"
+  GO_SHA256SUM: "8920ea521bad8f6b7bc377b4824982e011c19af27df88a815e3586ea895f1b36"
+
 test:
   stage: "test"
   image: "harbor.maxiv.lu.se/dockerhub/library/golang:1.21"
@@ -31,7 +35,17 @@ test:
       else
         VERSION="0.0.$(date +%s).$CI_COMMIT_SHORT_SHA"
       fi
-    - "dnf install -y rpmdevtools rpmlint golang systemd-rpm-macros"
+    - "dnf install -y rpmdevtools rpmlint systemd-rpm-macros curl"
+    - |
+      curl -L https://go.dev/dl/go1.22.3.linux-amd64.tar.gz -o /tmp/go.tar.gz
+      echo $GO_SHA256SUM | sha256sum -c
+      if test $? != 0; then
+        echo "Bad checksum. stop"
+        exit 1
+      fi
+      tar xvf /opt/
+      export PATH=$PATH:/opt/go/bin/
+      go version
     - "rpmdev-setuptree"
     - "mkdir -p /usr/src/build/haproxy-spoe-auth-$VERSION"
     - "cp -r ./ /usr/src/build/haproxy-spoe-auth-$VERSION/"
