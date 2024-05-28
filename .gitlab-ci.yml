@@ -38,12 +38,13 @@ test:
     - "dnf install -y rpmdevtools rpmlint systemd-rpm-macros curl"
     - |
       curl -L https://go.dev/dl/go1.22.3.linux-amd64.tar.gz -o /tmp/go.tar.gz
-      echo $GO_SHA256SUM | sha256sum -c
+      echo $GO_SHA256SUM /tmp/go.tar.gz | sha256sum -c
       if test $? != 0; then
         echo "Bad checksum. stop"
         exit 1
       fi
-      tar xvf /opt/
+      cd /opt/
+      tar xvpf /tmp/go.tar.gz
       export PATH=$PATH:/opt/go/bin/
       go version
     - "rpmdev-setuptree"
