@@ -14,9 +14,9 @@ test:
     # The tests are limited to this directory for now.
     - "go test -v ./internal/..."
 
-package/rpm/bin-only:
+.package/rpm/bin-only:
   stage: "package"
-  image: "harbor.maxiv.lu.se/dockerhub/library/rockylinux:8"
+  # image: "harbor.maxiv.lu.se/dockerhub/library/rockylinux:8"
   # dependencies:
   #   - "build"
   artifacts:
@@ -48,6 +48,14 @@ package/rpm/bin-only:
       for file in $__FILES; do
         curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file $file "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/haproxy-spoe-auth/$VERSION/$(basename $file)"
       done
+
+package/rpm/bin-only/RL8:
+  extends: ".package/rpm/bin-only"
+  image: "harbor.maxiv.lu.se/dockerhub/library/rockylinux:8"
+
+package/rpm/bin-only/RL9:
+  extends: ".package/rpm/bin-only"
+  image: "harbor.maxiv.lu.se/dockerhub/library/rockylinux:9"
 
 container-image/build:
   stage: build
