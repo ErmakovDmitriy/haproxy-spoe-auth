@@ -52,6 +52,8 @@ oidc:
   cookie_secure: false
   # If not set, then uses ID token expire timestamp
   cookie_ttl_seconds: 3600
+  # OpenID state lifetime. If not set, default is 300 seconds (5 minutes).
+  state_ttl_seconds: 300
   # The secret used to sign the state parameter
   signature_secret: myunsecuresecret
   # The secret used to encrypt the cookie in order to guarantee the privacy of the data in case of leak
