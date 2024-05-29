@@ -5,7 +5,7 @@ stages:
 
 default:
   tags:
-    - "RUNNER_TAG"
+    - "$RUNNER_TAG"
 
 variables:
   GO_URL: "https://go.dev/dl/go1.22.3.linux-amd64.tar.gz"
