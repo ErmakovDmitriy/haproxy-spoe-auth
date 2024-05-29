@@ -98,10 +98,16 @@ type OAuthArgs struct {
 	tokenExpressions []OAuthTokenExpression
 }
 
-// ErrorTemplateContext contains extra fields to render error messages.
-type ErrorTemplateContext struct {
+// errorTemplateContext contains extra fields to render error messages.
+type errorTemplateContext struct {
 	SupportEmail        string
 	SupportEmailSubject string
+}
+
+type errorTemplates struct {
+	redirectErr       *template.Template
+	badRequestErr     *template.Template
+	internalServerErr *template.Template
 }
 
 // NewOIDCAuthenticator create an instance of an OIDC authenticator
@@ -124,17 +130,20 @@ func NewOIDCAuthenticator(options OIDCAuthenticatorOptions) *OIDCAuthenticator {
 		logrus.Fatalf("unable to read the html page for redirecting: %s", err)
 	}
 
-	errorsTmpl, err := template.New(errNameRedirect).Parse(RedirectErrorPageTemplate)
+	// Load error templates.
+	var errorsTmpl errorTemplates
+
+	errorsTmpl.redirectErr, err = template.New(errNameRedirect).Parse(RedirectErrorPageTemplate)
 	if err != nil {
 		logrus.Fatalf("unable to read the html page for redirect errors: %s", err)
 	}
 
-	errorsTmpl, err = errorsTmpl.New(errNameBadRequest).Parse(BadRequestTemplate)
+	errorsTmpl.badRequestErr, err = template.New(errNameBadRequest).Parse(BadRequestTemplate)
 	if err != nil {
 		logrus.Fatalf("unable to read the html page for bad request error: %s", err)
 	}
 
-	errorsTmpl, err = errorsTmpl.New(errNameInternal).Parse(InternalServerErrorTemplate)
+	errorsTmpl.internalServerErr, err = template.New(errNameInternal).Parse(InternalServerErrorTemplate)
 	if err != nil {
 		logrus.Fatalf("unable to read the html page for internal server error: %s", err)
 	}
@@ -147,7 +156,7 @@ func NewOIDCAuthenticator(options OIDCAuthenticatorOptions) *OIDCAuthenticator {
 	}
 
 	go func() {
-		callbackServerMux.HandleFunc(options.RedirectCallbackPath, oa.handleOAuth2Callback(tmpl, errorsTmpl, ErrorTemplateContext{
+		callbackServerMux.HandleFunc(options.RedirectCallbackPath, oa.handleOAuth2Callback(tmpl, errorsTmpl, errorTemplateContext{
 			SupportEmail:        options.SupportEmailAddress,
 			SupportEmailSubject: options.SupportEmailSubject,
 		}))
@@ -552,7 +561,7 @@ func (oa *OIDCAuthenticator) handleOAuth2Logout() http.HandlerFunc {
 	}
 }
 
-func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, errorsTmpl *template.Template, errorsCtx ErrorTemplateContext) http.HandlerFunc {
+func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, errorsTmpl errorTemplates, errorsCtx errorTemplateContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var logger *logrus.Entry = logrus.WithFields(logrus.Fields{
 			"client":  r.RemoteAddr,
@@ -642,7 +651,7 @@ func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, error
 		logger.Debugf("target url request by user %s", url)
 		signature := oa.computeStateSignature(&state)
 		if signature != state.Signature {
-			err = errorsTmpl.Lookup(errNameRedirect).Execute(w, struct{ URL string }{URL: url})
+			err = errorsTmpl.redirectErr.Execute(w, struct{ URL string }{URL: url})
 			if err != nil {
 				logger.WithError(err).Error("unable to render error template")
 				http.Error(w, "Server error", http.StatusInternalServerError)
@@ -780,11 +789,11 @@ func parseTokenClaims(idToken *oidc.IDToken) (*gjson.Result, error) {
 	return &claimsVals, nil
 }
 
-func writeError(logger *logrus.Entry, code int, w http.ResponseWriter, errorsTmpl *template.Template, errorsCtx *ErrorTemplateContext) {
+func writeError(logger *logrus.Entry, code int, w http.ResponseWriter, errorsTmpl errorTemplates, errorsCtx *errorTemplateContext) {
 	switch code {
 	case http.StatusInternalServerError:
 		w.WriteHeader(http.StatusBadRequest)
-		err := errorsTmpl.Lookup(errNameInternal).Execute(w, &errorsCtx)
+		err := errorsTmpl.internalServerErr.Execute(w, &errorsCtx)
 		if err != nil {
 			logger.WithError(err).Error("unable to render error template")
 			http.Error(w, "Server error", http.StatusInternalServerError)
@@ -793,7 +802,7 @@ func writeError(logger *logrus.Entry, code int, w http.ResponseWriter, errorsTmp
 
 	case http.StatusBadRequest:
 		w.WriteHeader(http.StatusBadRequest)
-		err := errorsTmpl.Lookup(errNameBadRequest).Execute(w, errorsCtx)
+		err := errorsTmpl.badRequestErr.Execute(w, errorsCtx)
 		if err != nil {
 			logger.WithError(err).Error("unable to render error template", err)
 			http.Error(w, "Server error", http.StatusInternalServerError)
@@ -801,8 +810,8 @@ func writeError(logger *logrus.Entry, code int, w http.ResponseWriter, errorsTmp
 		}
 
 	default:
-		w.WriteHeader(http.StatusBadRequest)
-		err := errorsTmpl.Lookup(errNameInternal).Execute(w, &errorsCtx)
+		w.WriteHeader(http.StatusInternalServerError)
+		err := errorsTmpl.internalServerErr.Execute(w, &errorsCtx)
 		if err != nil {
 			logger.WithError(err).Error("unable to render error template")
 			http.Error(w, "Server error", http.StatusInternalServerError)
