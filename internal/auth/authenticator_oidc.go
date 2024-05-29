@@ -638,11 +638,11 @@ func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, error
 		}
 
 		var nowTS = time.Now()
-		if state.Timestamp.Add(oa.options.CookieTTL).Before(nowTS) {
+		if state.Timestamp.Add(oa.options.StateTTL).Before(nowTS) {
 			logger.WithFields(logrus.Fields{
 				"state_timestamp":            state.Timestamp,
 				"state_timestamp_check_time": nowTS,
-				"state_validity_duration":    oa.options.CookieTTL,
+				"state_validity_duration":    oa.options.StateTTL,
 			}).Error("state value has expired")
 			writeError(logger, http.StatusBadRequest, w, errorsTmpl, &errorsCtx)
 			return
