@@ -5,7 +5,7 @@ stages:
 
 default:
   tags:
-    - "kubernetes"
+    - "RUNNER_TAG"
 
 variables:
   GO_URL: "https://go.dev/dl/go1.22.3.linux-amd64.tar.gz"
@@ -13,16 +13,13 @@ variables:
 
 test:
   stage: "test"
-  image: "harbor.maxiv.lu.se/dockerhub/library/golang:1.21"
+  image: "docker.io/library/golang:1.22"
   script:
     # The tests are limited to this directory for now.
     - "go test -v ./internal/..."
 
 .package/rpm/bin-only:
   stage: "package"
-  # image: "harbor.maxiv.lu.se/dockerhub/library/rockylinux:8"
-  # dependencies:
-  #   - "build"
   artifacts:
     when: on_success
     expire_in: "5 days"
@@ -65,29 +62,8 @@ test:
 
 package/rpm/bin-only/RL8:
   extends: ".package/rpm/bin-only"
-  image: "harbor.maxiv.lu.se/dockerhub/library/rockylinux:8"
+  image: "docker.io/library/rockylinux:8"
 
 package/rpm/bin-only/RL9:
   extends: ".package/rpm/bin-only"
-  image: "harbor.maxiv.lu.se/dockerhub/library/rockylinux:9"
-
-container-image/build:
-  stage: build
-  variables:
-    BUILDAH_CACHE: "true"
-    BRANCHES_TO_INCLUDE: "master"
-  trigger:
-    strategy: depend
-    include:
-      - project: kits-maxiv/kubernetes/k8s-gitlab-ci
-        ref: "0.6"
-        file: "Docker-build.gitlab-ci.yml"
-  rules:
-    # package from production branch when changed or tagged
-    - if: "$CI_COMMIT_BRANCH =~ $BRANCHES_TO_INCLUDE && $CI_MERGE_REQUEST_IID == null"
-      changes:
-        - "**/**"
-        - ".gitlab-ci.yml"
-    - if: "$CI_COMMIT_TAG"
-    # If you need to run the pipelines for Merge requests, add:
-    - if: "$CI_MERGE_REQUEST_IID != null"
+  image: "docker.io/library/rockylinux:9"
