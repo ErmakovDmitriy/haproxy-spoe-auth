@@ -6,6 +6,14 @@ server:
   # Use JSON formatter for logs
   log_json: false
 
+  # Optional section containing
+  # contact information to send error reports to.
+  # The email from this section will be shown to
+  # clients in error messages.
+  contacts:
+    email: ""
+    subject: ""
+
 # If set, the LDAP authenticator is enabled
 ldap:
   # SPOE message name as it is defined in HAProxy spoe-message {{ NAME }} value.

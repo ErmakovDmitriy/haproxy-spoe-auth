@@ -54,6 +54,10 @@ type OAuth2AuthenticatorOptions struct {
 	CookieSecure bool
 	CookieTTL    time.Duration
 
+	// Optional support contact information.
+	SupportEmailAddress string
+	SupportEmailSubject string
+
 	// The addr interface the callback will be exposed on.
 	CallbackAddr string
 
@@ -94,6 +98,12 @@ type OAuthArgs struct {
 	tokenExpressions []OAuthTokenExpression
 }
 
+// ErrorTemplateContext contains extra fields to render error messages.
+type ErrorTemplateContext struct {
+	SupportEmail        string
+	SupportEmailSubject string
+}
+
 // NewOIDCAuthenticator create an instance of an OIDC authenticator
 func NewOIDCAuthenticator(options OIDCAuthenticatorOptions) *OIDCAuthenticator {
 	if len(options.SignatureSecret) < 16 {
@@ -111,12 +121,22 @@ func NewOIDCAuthenticator(options OIDCAuthenticatorOptions) *OIDCAuthenticator {
 
 	tmpl, err := template.New("redirect_html").Parse(RedirectPageTemplate)
 	if err != nil {
-		logrus.Fatalf("unable to read the html page for redirecting")
+		logrus.Fatalf("unable to read the html page for redirecting: %s", err)
 	}
 
-	errorTmpl, err := template.New("error").Parse(ErrorPageTemplate)
+	errorsTmpl, err := template.New(errNameRedirect).Parse(RedirectErrorPageTemplate)
 	if err != nil {
-		logrus.Fatalf("unable to read the html page for redirecting")
+		logrus.Fatalf("unable to read the html page for redirect errors: %s", err)
+	}
+
+	errorsTmpl, err = errorsTmpl.New(errNameBadRequest).Parse(BadRequestTemplate)
+	if err != nil {
+		logrus.Fatalf("unable to read the html page for bad request error: %s", err)
+	}
+
+	errorsTmpl, err = errorsTmpl.New(errNameInternal).Parse(InternalServerErrorTemplate)
+	if err != nil {
+		logrus.Fatalf("unable to read the html page for internal server error: %s", err)
 	}
 
 	oa := &OIDCAuthenticator{
@@ -127,7 +147,10 @@ func NewOIDCAuthenticator(options OIDCAuthenticatorOptions) *OIDCAuthenticator {
 	}
 
 	go func() {
-		callbackServerMux.HandleFunc(options.RedirectCallbackPath, oa.handleOAuth2Callback(tmpl, errorTmpl))
+		callbackServerMux.HandleFunc(options.RedirectCallbackPath, oa.handleOAuth2Callback(tmpl, errorsTmpl, ErrorTemplateContext{
+			SupportEmail:        options.SupportEmailAddress,
+			SupportEmailSubject: options.SupportEmailSubject,
+		}))
 		callbackServerMux.HandleFunc(options.LogoutPath, oa.handleOAuth2Logout())
 		logrus.Infof("OIDC API is exposed on %s", options.CallbackAddr)
 		callbackServerMux.HandleFunc(options.HealthCheckPath, handleHealthCheck)
@@ -529,7 +552,7 @@ func (oa *OIDCAuthenticator) handleOAuth2Logout() http.HandlerFunc {
 	}
 }
 
-func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, errorTmpl *template.Template) http.HandlerFunc {
+func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, errorsTmpl *template.Template, errorsCtx ErrorTemplateContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var logger *logrus.Entry = logrus.WithFields(logrus.Fields{
 			"client":  r.RemoteAddr,
@@ -549,7 +572,7 @@ func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, error
 		stateB64Payload := r.URL.Query().Get("state")
 		if stateB64Payload == "" {
 			logger.Error("cannot extract the state query param")
-			http.Error(w, "Bad request", http.StatusBadRequest)
+			writeError(logger, http.StatusBadRequest, w, errorsTmpl, &errorsCtx)
 			return
 		}
 
@@ -557,12 +580,8 @@ func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, error
 
 		oidcClientConfig, err := oa.options.ClientsStore.GetClient(domain)
 		if err != nil {
-			logger.WithFields(logrus.Fields{
-				"domain": domain,
-				"error":  err,
-			}).Error("Can not find OAuth2 client for the given domain")
-			http.Error(w, "Bad request", http.StatusBadRequest)
-
+			logger.WithField("domain", domain).WithError(err).Error("Can not find OAuth2 client for the given domain")
+			writeError(logger, http.StatusBadRequest, w, errorsTmpl, &errorsCtx)
 			return
 		}
 
@@ -573,8 +592,8 @@ func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, error
 			return err
 		})
 		if err != nil {
-			logger.Errorf("unable to retrieve OAuth2 token: %v", err)
-			http.Error(w, "Bad request", http.StatusBadRequest)
+			logger.WithError(err).Error("unable to retrieve OAuth2 token")
+			writeError(logger, http.StatusBadRequest, w, errorsTmpl, &errorsCtx)
 			return
 		}
 
@@ -582,36 +601,36 @@ func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, error
 		rawIDToken, ok := oauth2Token.Extra("id_token").(string)
 		if !ok {
 			logger.Errorf("unable to extract the raw id_token: %v", err)
-			http.Error(w, "Bad request", http.StatusBadRequest)
+			writeError(logger, http.StatusBadRequest, w, errorsTmpl, &errorsCtx)
 			return
 		}
 
 		// Parse and verify ID Token payload.
 		idToken, err := oa.verifyIDToken(r.Context(), oidcClientConfig, rawIDToken)
 		if err != nil {
-			logger.WithError(err).Errorf("unable to verify the ID token: %v", err)
-			http.Error(w, "Bad request", http.StatusBadRequest)
+			logger.WithError(err).Error("unable to verify the ID token")
+			writeError(logger, http.StatusBadRequest, w, errorsTmpl, &errorsCtx)
 			return
 		}
 
 		stateJSONPayload, err := base64.StdEncoding.DecodeString(stateB64Payload)
 		if err != nil {
-			logger.WithError(err).Errorf("unable to decode origin URL from state: %v", err)
-			http.Error(w, "Bad request", http.StatusBadRequest)
+			logger.WithError(err).Error("unable to decode origin URL from state")
+			writeError(logger, http.StatusBadRequest, w, errorsTmpl, &errorsCtx)
 			return
 		}
 
 		var state State
 		err = msgpack.Unmarshal(stateJSONPayload, &state)
 		if err != nil {
-			logger.WithError(err).Errorf("unable to unmarshal the state payload: %v", err)
-			http.Error(w, "Bad request", http.StatusBadRequest)
+			logger.WithError(err).Error("unable to unmarshal the state payload")
+			writeError(logger, http.StatusBadRequest, w, errorsTmpl, &errorsCtx)
 			return
 		}
 
 		if state.Timestamp.Add(ValidStateDuration).Before(time.Now()) {
-			logger.WithError(err).Errorf("state value has expired: %v", err)
-			http.Error(w, "Bad request", http.StatusBadRequest)
+			logger.WithError(err).Error("state value has expired")
+			writeError(logger, http.StatusBadRequest, w, errorsTmpl, &errorsCtx)
 			return
 		}
 
@@ -623,20 +642,19 @@ func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, error
 		logger.Debugf("target url request by user %s", url)
 		signature := oa.computeStateSignature(&state)
 		if signature != state.Signature {
-			err = errorTmpl.Execute(w, struct{ URL string }{URL: url})
+			err = errorsTmpl.Lookup(errNameRedirect).Execute(w, struct{ URL string }{URL: url})
 			if err != nil {
-				logger.WithError(err).Errorf("unable to render error template: %v", err)
-				http.Error(w, "Bad request", http.StatusBadRequest)
+				logger.WithError(err).Error("unable to render error template")
+				http.Error(w, "Server error", http.StatusInternalServerError)
 				return
 			}
 			return
 		}
 
 		encryptedIDToken, err := oa.encryptor.Encrypt(rawIDToken)
-
 		if err != nil {
-			logger.WithError(err).Errorf("unable to encrypt the ID token: %v", err)
-			http.Error(w, "Bad request", http.StatusBadRequest)
+			logger.WithError(err).Error("unable to encrypt the ID token")
+			writeError(logger, http.StatusInternalServerError, w, errorsTmpl, &errorsCtx)
 			return
 		}
 
@@ -661,8 +679,8 @@ func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, error
 
 		err = tmpl.Execute(w, struct{ URL string }{URL: string(url)})
 		if err != nil {
-			logger.WithError(err).Errorf("unable to render redirect template: %v", err)
-			http.Error(w, "Bad request", http.StatusBadRequest)
+			logger.WithError(err).Error("unable to render redirect template")
+			writeError(logger, http.StatusBadRequest, w, errorsTmpl, &errorsCtx)
 		}
 	}
 }
@@ -760,4 +778,36 @@ func parseTokenClaims(idToken *oidc.IDToken) (*gjson.Result, error) {
 	claimsVals := gjson.ParseBytes(claimsData)
 
 	return &claimsVals, nil
+}
+
+func writeError(logger *logrus.Entry, code int, w http.ResponseWriter, errorsTmpl *template.Template, errorsCtx *ErrorTemplateContext) {
+	switch code {
+	case http.StatusInternalServerError:
+		w.WriteHeader(http.StatusBadRequest)
+		err := errorsTmpl.Lookup(errNameInternal).Execute(w, &errorsCtx)
+		if err != nil {
+			logger.WithError(err).Error("unable to render error template")
+			http.Error(w, "Server error", http.StatusInternalServerError)
+			return
+		}
+
+	case http.StatusBadRequest:
+		w.WriteHeader(http.StatusBadRequest)
+		err := errorsTmpl.Lookup(errNameBadRequest).Execute(w, errorsCtx)
+		if err != nil {
+			logger.WithError(err).Error("unable to render error template", err)
+			http.Error(w, "Server error", http.StatusInternalServerError)
+			return
+		}
+
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		err := errorsTmpl.Lookup(errNameInternal).Execute(w, &errorsCtx)
+		if err != nil {
+			logger.WithError(err).Error("unable to render error template")
+			http.Error(w, "Server error", http.StatusInternalServerError)
+			return
+		}
+
+	}
 }

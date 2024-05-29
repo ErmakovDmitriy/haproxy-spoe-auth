@@ -146,6 +146,8 @@ func main() {
 				CookieSecure:               viper.GetBool("oidc.cookie_secure"),
 				CookieTTL:                  viper.GetDuration("oidc.cookie_ttl_seconds") * time.Second,
 				SignatureSecret:            viper.GetString("oidc.signature_secret"),
+				SupportEmailAddress:        viper.GetString("oidc.server.contacts.email"),
+				SupportEmailSubject:        viper.GetString("oidc.server.contacts.subject"),
 				ClientsStore:               clientsStore,
 				ReadClientInfoFromMessages: flagsCfg.dynamicClientInfo,
 			},
