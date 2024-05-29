@@ -1,6 +1,5 @@
 stages:
   - "test"
-  - "build"
   - "package"
 
 default:
@@ -69,7 +68,7 @@ package/rpm/bin-only/RL9:
   image: "docker.io/library/rockylinux:9"
 
 container-image:
-  stage: "build"
+  stage: "package"
   image: quay.io/maxiv/ci-image-builder:v24.03.13
   script:
     - buildah-build
