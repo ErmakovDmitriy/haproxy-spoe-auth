@@ -23,10 +23,6 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// ValidStateDuration is the amount of time before the state is considered expired. This will be replaced
-// by an expiration in a JWT token in a future review.
-const ValidStateDuration = 30 * time.Second
-
 var callbackServerMux = http.NewServeMux()
 
 // OIDCAuthenticatorOptions options to customize to the OIDC authenticator
@@ -53,6 +49,10 @@ type OAuth2AuthenticatorOptions struct {
 	CookieName   string
 	CookieSecure bool
 	CookieTTL    time.Duration
+
+	// OpenID "state" lifetime, default value is 5 minutes as
+	// recommended in https://github.com/OpenIDC/mod_auth_openidc/wiki/Cookies#state-cookie.
+	StateTTL time.Duration
 
 	// Optional support contact information.
 	SupportEmailAddress string
@@ -637,8 +637,13 @@ func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, error
 			return
 		}
 
-		if state.Timestamp.Add(ValidStateDuration).Before(time.Now()) {
-			logger.WithError(err).Error("state value has expired")
+		var nowTS = time.Now()
+		if state.Timestamp.Add(oa.options.CookieTTL).Before(nowTS) {
+			logger.WithFields(logrus.Fields{
+				"state_timestamp":            state.Timestamp,
+				"state_timestamp_check_time": nowTS,
+				"state_validity_duration":    oa.options.CookieTTL,
+			}).Error("state value has expired")
 			writeError(logger, http.StatusBadRequest, w, errorsTmpl, &errorsCtx)
 			return
 		}

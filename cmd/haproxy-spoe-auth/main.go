@@ -13,6 +13,10 @@ import (
 	"github.com/spf13/viper"
 )
 
+// DefaultStateTTL is the amount of time before the state is considered expired. This will be replaced
+// by an expiration in a JWT token in a future review.
+const DefaultStateTTL = 5 * time.Minute
+
 func LogLevelFromLogString(level string) logrus.Level {
 	switch level {
 	case "info":
@@ -136,6 +140,22 @@ func main() {
 		}
 		clientsStore = auth.NewStaticOIDCClientStore(clientsConfig)
 
+		// Load Cookie and State TTLs and set defaults.
+		var (
+			cookieTTL time.Duration
+			stateTTL  time.Duration
+		)
+
+		if v := viper.GetUint64("oidc.cookie_ttl_seconds"); v != 0 {
+			cookieTTL = time.Duration(v) * time.Second
+		}
+
+		if v := viper.GetUint64("oidc.state_ttl_seconds"); v != 0 {
+			stateTTL = time.Duration(v) * time.Second
+		} else {
+			stateTTL = DefaultStateTTL
+		}
+
 		oidcAuthConfig := auth.OIDCAuthenticatorOptions{
 			OAuth2AuthenticatorOptions: auth.OAuth2AuthenticatorOptions{
 				RedirectCallbackPath:       viper.GetString("oidc.oauth2_callback_path"),
@@ -144,7 +164,8 @@ func main() {
 				CallbackAddr:               viper.GetString("oidc.callback_addr"),
 				CookieName:                 viper.GetString("oidc.cookie_name"),
 				CookieSecure:               viper.GetBool("oidc.cookie_secure"),
-				CookieTTL:                  viper.GetDuration("oidc.cookie_ttl_seconds") * time.Second,
+				CookieTTL:                  cookieTTL,
+				StateTTL:                   stateTTL,
 				SignatureSecret:            viper.GetString("oidc.signature_secret"),
 				SupportEmailAddress:        viper.GetString("oidc.server.contacts.email"),
 				SupportEmailSubject:        viper.GetString("oidc.server.contacts.subject"),
@@ -169,8 +190,11 @@ func main() {
 			"cookie_name":             oidcAuthConfig.CookieName,
 			"cookie_secure":           oidcAuthConfig.CookieSecure,
 			"cookie_ttl_seconds":      oidcAuthConfig.CookieTTL.Seconds(),
+			"state_ttl_seconds":       oidcAuthConfig.StateTTL.Seconds(),
 			"dynamic_client_info":     oidcAuthConfig.ReadClientInfoFromMessages,
 			"provider_url":            oidcAuthConfig.ProviderURL,
+			"support_email_address":   oidcAuthConfig.SupportEmailAddress,
+			"support_email_subject":   oidcAuthConfig.SupportEmailSubject,
 		}).Info("OAuth2 authenticator configuration")
 
 		var clientsLog = logrus.WithFields(logrus.Fields{
