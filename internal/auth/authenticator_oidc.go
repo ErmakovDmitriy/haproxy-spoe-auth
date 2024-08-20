@@ -82,6 +82,7 @@ type OIDCAuthenticator struct {
 
 	signatureComputer *HmacSha256Computer
 	encryptor         *AESEncryptor
+	pkceVerifier      string
 
 	options OIDCAuthenticatorOptions
 }
@@ -153,6 +154,7 @@ func NewOIDCAuthenticator(options OIDCAuthenticatorOptions) *OIDCAuthenticator {
 		options:           options,
 		signatureComputer: NewHmacSha256Computer(options.SignatureSecret),
 		encryptor:         NewAESEncryptor(options.EncryptionSecret),
+		pkceVerifier:      oauth2.GenerateVerifier(),
 	}
 
 	go func() {
@@ -342,10 +344,9 @@ func extractOAuth2Args(msg *message.Message, readClientInfoFromMessages bool, lo
 		}
 	}
 
-	if clientid == nil || clientsecret == nil || redirecturl == nil {
+	if clientid == nil || redirecturl == nil {
 		temp := ""
 		clientid = &temp
-		clientsecret = &temp
 		redirecturl = &temp
 	}
 
@@ -534,7 +535,7 @@ func (oa *OIDCAuthenticator) buildAuthorizationURL(domain string, oauthArgs OAut
 
 	var authorizationURL string
 	err = oa.withOAuth2Config(domain, func(config oauth2.Config) error {
-		authorizationURL = config.AuthCodeURL(base64.StdEncoding.EncodeToString(stateBytes))
+		authorizationURL = config.AuthCodeURL(base64.StdEncoding.EncodeToString(stateBytes), oauth2.S256ChallengeOption(oa.pkceVerifier))
 		return nil
 	})
 	if err != nil {
@@ -596,7 +597,7 @@ func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, error
 
 		var oauth2Token *oauth2.Token
 		err = oa.withOAuth2Config(domain, func(config oauth2.Config) error {
-			token, err := config.Exchange(r.Context(), r.URL.Query().Get("code"))
+			token, err := config.Exchange(r.Context(), r.URL.Query().Get("code"), oauth2.VerifierOption(oa.pkceVerifier))
 			oauth2Token = token
 			return err
 		})
