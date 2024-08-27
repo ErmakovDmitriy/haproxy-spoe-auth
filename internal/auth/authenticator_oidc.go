@@ -12,17 +12,22 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/criteo/haproxy-spoe-auth/internal/cache"
+	"github.com/criteo/haproxy-spoe-auth/internal/cache/memcached"
+	"github.com/criteo/haproxy-spoe-auth/internal/cache/memory"
 	"github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 	"github.com/vmihailenco/msgpack/v5"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	cache "github.com/go-pkgz/expirable-cache/v3"
 	action "github.com/negasus/haproxy-spoe-go/action"
 	message "github.com/negasus/haproxy-spoe-go/message"
 
 	"golang.org/x/oauth2"
 )
+
+// PKCECacheTTL default PKCE cache TTL, if not set by Cookies lifetime.
+const PKCECacheTTL = time.Second * 3600
 
 var callbackServerMux = http.NewServeMux()
 
@@ -35,6 +40,9 @@ type OIDCAuthenticatorOptions struct {
 
 	// This is used to encrypt the ID Token returned by the IdP.
 	EncryptionSecret string
+
+	// MemcachedHosts shared cache. If not set, a local in memory cache is used.
+	MemcachedHosts []string
 }
 
 // OAuth2AuthenticatorOptions options to customize to the OAuth2 authenticator
@@ -83,7 +91,7 @@ type OIDCAuthenticator struct {
 
 	signatureComputer *HmacSha256Computer
 	encryptor         *AESEncryptor
-	pkceVerifierCache cache.Cache[string, string]
+	pkceVerifierCache cache.PKCEVerifierCache
 
 	options OIDCAuthenticatorOptions
 }
@@ -150,12 +158,31 @@ func NewOIDCAuthenticator(options OIDCAuthenticatorOptions) *OIDCAuthenticator {
 		logrus.Fatalf("unable to read the html page for internal server error: %s", err)
 	}
 
+	var cacheTTL time.Duration
+
+	if options.CookieTTL != 0 {
+		cacheTTL = options.CookieTTL
+	} else {
+		cacheTTL = PKCECacheTTL
+	}
+
+	var pkceCache cache.PKCEVerifierCache
+
+	if options.MemcachedHosts == nil {
+		pkceCache = memory.New(cacheTTL)
+	} else {
+		pkceCache, err = memcached.New(cacheTTL, options.MemcachedHosts...)
+		if err != nil {
+			logrus.Fatalf("can not init distributed cache: %s", err)
+		}
+	}
+
 	oa := &OIDCAuthenticator{
 		provider:          provider,
 		options:           options,
 		signatureComputer: NewHmacSha256Computer(options.SignatureSecret),
 		encryptor:         NewAESEncryptor(options.EncryptionSecret),
-		pkceVerifierCache: cache.NewCache[string, string](),
+		pkceVerifierCache: pkceCache,
 	}
 
 	go func() {
@@ -537,11 +564,11 @@ func (oa *OIDCAuthenticator) buildAuthorizationURL(domain string, oauthArgs OAut
 	var authorizationURL string
 	pkceVerifier := oauth2.GenerateVerifier()
 	stateStr := base64.StdEncoding.EncodeToString(stateBytes)
-	cacheTTL := time.Second * 3600
-	if oa.options.CookieTTL != 0 {
-		cacheTTL = oa.options.CookieTTL
+
+	if err = oa.pkceVerifierCache.Set(stateStr, pkceVerifier); err != nil {
+		return "", fmt.Errorf("can not store PKCE in cache: %w", err)
 	}
-	oa.pkceVerifierCache.Set(stateStr, pkceVerifier, cacheTTL)
+
 	err = oa.withOAuth2Config(domain, func(config oauth2.Config) error {
 		authorizationURL = config.AuthCodeURL(stateStr, oauth2.S256ChallengeOption(pkceVerifier))
 		return nil
@@ -603,7 +630,13 @@ func (oa *OIDCAuthenticator) handleOAuth2Callback(tmpl *template.Template, error
 			return
 		}
 
-		pkceVerifier, ok := oa.pkceVerifierCache.Get(stateB64Payload)
+		pkceVerifier, ok, err := oa.pkceVerifierCache.Get(stateB64Payload)
+		if err != nil {
+			logger.WithError(err).Error("cannot retrieve PKCE from cache")
+			writeError(logger, http.StatusBadRequest, w, errorsTmpl, &errorsCtx)
+			return
+		}
+
 		if !ok {
 			logrus.Error("cannot retrieve pkce verifier")
 			http.Error(w, "Bad request", http.StatusBadRequest)

@@ -174,6 +174,7 @@ func main() {
 			},
 			ProviderURL:      viper.GetString("oidc.provider_url"),
 			EncryptionSecret: viper.GetString("oidc.encryption_secret"),
+			MemcachedHosts:   viper.GetStringSlice("oidc.memcached_hosts"),
 		}
 
 		oidcAuthenticator := auth.NewOIDCAuthenticator(oidcAuthConfig)
