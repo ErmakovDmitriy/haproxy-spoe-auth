@@ -100,8 +100,8 @@ type OAuthArgs struct {
 	ssl              bool
 	host             string
 	pathq            string
-	clientid         string
-	clientsecret     string
+	clientid         *string
+	clientsecret     *string
 	redirecturl      string
 	cookie           string
 	tokenClaims      []string
@@ -383,8 +383,8 @@ func extractOAuth2Args(msg *message.Message, readClientInfoFromMessages bool, lo
 			host:             host,
 			pathq:            pathq,
 			cookie:           cookie,
-			clientid:         *clientid,
-			clientsecret:     *clientsecret,
+			clientid:         clientid,
+			clientsecret:     clientsecret,
 			redirecturl:      *redirecturl,
 			tokenClaims:      tokenClaims,
 			tokenExpressions: tokenExpressions,
@@ -438,8 +438,8 @@ func (oa *OIDCAuthenticator) Authenticate(msg *message.Message) (bool, []action.
 		}).Debug("OAuth2 authenticate request")
 	}
 
-	if oa.options.ReadClientInfoFromMessages && oauthArgs.clientid != "" {
-		oa.options.ClientsStore.AddClient(domain, oauthArgs.clientid, oauthArgs.clientsecret, oauthArgs.redirecturl)
+	if oa.options.ReadClientInfoFromMessages && oauthArgs.clientid != nil && oauthArgs.clientsecret != nil {
+		oa.options.ClientsStore.AddClient(domain, *oauthArgs.clientid, *oauthArgs.clientsecret, oauthArgs.redirecturl)
 	}
 
 	oidcClientConfig, err := oa.options.ClientsStore.GetClient(domain)
