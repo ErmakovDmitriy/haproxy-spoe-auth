@@ -7,12 +7,12 @@ default:
     - "$RUNNER_TAG"
 
 variables:
-  GO_URL: "https://go.dev/dl/go1.22.3.linux-amd64.tar.gz"
-  GO_SHA256SUM: "8920ea521bad8f6b7bc377b4824982e011c19af27df88a815e3586ea895f1b36"
+  GO_URL: "https://go.dev/dl/go1.23.1.linux-amd64.tar.gz"
+  GO_SHA256SUM: "49bbb517cfa9eee677e1e7897f7cf9cfdbcf49e05f61984a2789136de359f9bd"
 
 test:
   stage: "test"
-  image: "docker.io/library/golang:1.22"
+  image: "docker.io/library/golang:1.23"
   script:
     # The tests are limited to this directory for now.
     - "go test -v ./internal/..."
@@ -33,7 +33,7 @@ test:
       fi
     - "dnf install --allowerasing -y rpmdevtools rpmlint systemd-rpm-macros golang curl"
     - |
-      curl -L https://go.dev/dl/go1.22.3.linux-amd64.tar.gz -o /tmp/go.tar.gz
+      curl -L $GO_URL -o /tmp/go.tar.gz
       echo $GO_SHA256SUM /tmp/go.tar.gz | sha256sum -c
       if test $? != 0; then
         echo "Bad checksum. stop"
