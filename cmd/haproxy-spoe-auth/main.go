@@ -194,6 +194,7 @@ func main() {
 			"state_ttl_seconds":       oidcAuthConfig.StateTTL.Seconds(),
 			"dynamic_client_info":     oidcAuthConfig.ReadClientInfoFromMessages,
 			"provider_url":            oidcAuthConfig.ProviderURL,
+			"memcached_hosts":         oidcAuthConfig.MemcachedHosts,
 			"support_email_address":   oidcAuthConfig.SupportEmailAddress,
 			"support_email_subject":   oidcAuthConfig.SupportEmailSubject,
 		}).Info("OAuth2 authenticator configuration")
