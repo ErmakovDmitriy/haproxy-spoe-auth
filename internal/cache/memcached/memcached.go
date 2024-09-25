@@ -2,6 +2,7 @@ package memcached
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"time"
 
@@ -33,8 +34,9 @@ func (mc *Cache) Get(key string) (string, bool, error) {
 	// Use SHA-256 as a way to have predictable key length.
 	// Hopefully without too large performance penalty.
 	hash := sha256.Sum256([]byte(key))
+	key2 := base64.StdEncoding.EncodeToString(hash[:])
 
-	item, err := mc.mc.Get(string(hash[:]))
+	item, err := mc.mc.Get(key2)
 	if err != nil {
 		if err == memcache.ErrCacheMiss {
 			return "", false, nil
@@ -51,9 +53,10 @@ func (mc *Cache) Set(key, value string) error {
 	// Use SHA-256 as a way to have predictable key length.
 	// Hopefully without too large performance penalty.
 	hash := sha256.Sum256([]byte(key))
+	key2 := base64.StdEncoding.EncodeToString(hash[:])
 
 	if err := mc.mc.Set(&memcache.Item{
-		Key:        string(hash[:]),
+		Key:        key2,
 		Value:      []byte(value),
 		Expiration: mc.duration,
 	}); err != nil {
