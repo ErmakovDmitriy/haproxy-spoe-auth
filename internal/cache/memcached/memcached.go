@@ -1,6 +1,7 @@
 package memcached
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"time"
 
@@ -29,7 +30,11 @@ func New(ttl time.Duration, servers ...string) (*Cache, error) {
 
 // Get retrieves a value from cache.
 func (mc *Cache) Get(key string) (string, bool, error) {
-	item, err := mc.mc.Get(key)
+	// Use SHA-256 as a way to have predictable key length.
+	// Hopefully without too large performance penalty.
+	hash := sha256.Sum256([]byte(key))
+
+	item, err := mc.mc.Get(string(hash[:]))
 	if err != nil {
 		if err == memcache.ErrCacheMiss {
 			return "", false, nil
@@ -43,8 +48,12 @@ func (mc *Cache) Get(key string) (string, bool, error) {
 
 // Set stores a value in cache.
 func (mc *Cache) Set(key, value string) error {
+	// Use SHA-256 as a way to have predictable key length.
+	// Hopefully without too large performance penalty.
+	hash := sha256.Sum256([]byte(key))
+
 	if err := mc.mc.Set(&memcache.Item{
-		Key:        key,
+		Key:        string(hash[:]),
 		Value:      []byte(value),
 		Expiration: mc.duration,
 	}); err != nil {
