@@ -3,8 +3,7 @@ module github.com/criteo/haproxy-spoe-auth
 go 1.23.0
 
 require (
-	github.com/bradfitz/gomemcache v0.0.0-20230905024940-24af94b03874
-	github.com/coreos/go-oidc/v3 v3.11.0
+	github.com/coreos/go-oidc/v3 v3.12.0
 	github.com/go-ldap/ldap/v3 v3.4.9
 	github.com/go-pkgz/expirable-cache/v3 v3.0.0
 	github.com/negasus/haproxy-spoe-go v1.0.5
