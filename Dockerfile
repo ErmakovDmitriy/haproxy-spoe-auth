@@ -10,5 +10,3 @@ RUN go build -C cmd/haproxy-spoe-auth -o /usr/app/haproxy-spoe-auth
 FROM docker.io/library/alpine:3.20
 COPY --from=builder /usr/app/haproxy-spoe-auth /usr/local/bin/
 CMD ["/usr/local/bin/haproxy-spoe-auth", "-c", "/etc/haproxy-spoe-auth/config.yml"]
-
-ENTRYPOINT ["/scripts/entrypoint.sh"]
