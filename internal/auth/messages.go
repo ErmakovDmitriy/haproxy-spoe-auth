@@ -166,41 +166,6 @@ func computeSPOEExpressionKey(expr *OAuthTokenExpression) string {
 	return result.String()
 }
 
-func normalizeSPOEExpressionValue(val string) string {
-	var result = &strings.Builder{}
-
-	result.Grow(len(val))
-
-	for _, c := range val {
-		if (c > 'a' && c < 'z') || (c > 'A' && c < 'Z') || (c > '0' && c < '9') {
-			_, _ = result.WriteRune(c)
-		} else {
-			_, _ = result.WriteRune('_')
-		}
-	}
-
-	return result.String()
-}
-
-func computeSPOEExpressionKey(expr *OAuthTokenExpression) string {
-	var result = &strings.Builder{}
-
-	_, _ = result.WriteString("token_expression_")
-	_, _ = result.WriteString(expr.Operation.String())
-	_, _ = result.WriteRune('_')
-	_, _ = result.WriteString(computeSPOEClaimKey(expr.tokenClaim))
-
-	if expr.Operation == exists || expr.Operation == doesNotExist {
-		return result.String()
-	}
-
-	_, _ = result.WriteRune('_')
-
-	_, _ = result.WriteString(normalizeSPOEExpressionValue(expr.RawValue))
-
-	return result.String()
-}
-
 func gjsonToSPOEValue(value *gjson.Result) interface{} {
 	switch value.Type {
 	case gjson.Null:
