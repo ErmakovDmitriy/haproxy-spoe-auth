@@ -7,8 +7,8 @@ default:
     - "$RUNNER_TAG"
 
 variables:
-  GO_URL: "https://go.dev/dl/go1.24.2.linux-amd64.tar.gz"
-  GO_SHA256SUM: "68097bd680839cbc9d464a0edce4f7c333975e27a90246890e9f1078c7e702ad"
+  GO_URL: "https://go.dev/dl/go1.24.4.linux-amd64.tar.gz"
+  GO_SHA256SUM: "d5501ee5aca0f258d5fe9bfaed401958445014495dc115f202d43d5210b45241"
 
 test:
   stage: "test"
