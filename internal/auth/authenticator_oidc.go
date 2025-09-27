@@ -351,6 +351,11 @@ func extractOAuth2Args(msg *message.Message, readClientInfoFromMessages bool, lo
 		redirecturl = &temp
 	}
 
+	if clientsecret == nil {
+		temp := ""
+		clientsecret = &temp
+	}
+
 	return OAuthArgs{
 			ssl:              ssl,
 			host:             host,
