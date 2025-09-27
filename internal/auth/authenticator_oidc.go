@@ -422,7 +422,10 @@ func (oa *OIDCAuthenticator) Authenticate(msg *message.Message) (bool, []action.
 
 	oidcClientConfig, err := oa.options.ClientsStore.GetClient(domain)
 	if err != nil {
-		return false, nil, fmt.Errorf("unable to find an oidc client for domain %s", domain)
+		// If OpenID configuration does not have a domain defined
+		// for this request, then Authentication must fail.
+		log.Errorf("unable to find an oidc client for domain %s", domain)
+		return false, nil, nil
 	}
 
 	if logrus.IsLevelEnabled(logrus.DebugLevel) {
