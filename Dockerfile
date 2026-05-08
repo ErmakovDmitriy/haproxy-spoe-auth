@@ -1,4 +1,4 @@
-FROM docker.io/library/golang:1.25-alpine3.23 as builder
+FROM docker.io/library/golang:1.26-alpine3.23 as builder
 
 WORKDIR /usr/app
 COPY go.mod go.mod
