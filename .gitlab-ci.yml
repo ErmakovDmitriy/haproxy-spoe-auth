@@ -7,12 +7,12 @@ default:
     - "$RUNNER_TAG"
 
 variables:
-  GO_URL: "https://go.dev/dl/go1.25.6.linux-amd64.tar.gz"
-  GO_SHA256SUM: "f022b6aad78e362bcba9b0b94d09ad58c5a70c6ba3b7582905fababf5fe0181a"
+  GO_URL: "https://go.dev/dl/go1.26.3.linux-amd64.tar.gz"
+  GO_SHA256SUM: "2b2cfc7148493da5e73981bffbf3353af381d5f93e789c82c79aff64962eb556"
 
 test:
   stage: "test"
-  image: "docker.io/library/golang:1.25"
+  image: "docker.io/library/golang:1.26"
   script:
     # The tests are limited to this directory for now.
     - "go test -v ./internal/..."
